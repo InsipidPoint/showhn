@@ -14,6 +14,9 @@ requires = [
     'repoze.tm2>=1.0b1', # default_commit_veto
     'zope.sqlalchemy',
     'WebError',
+    'json',
+    'pprint',
+    'pymongo'
     ]
 
 if sys.version_info[:3] < (2,5,0):
