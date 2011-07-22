@@ -7,6 +7,7 @@ setup.cfg
 setup.py
 showhn/__init__.py
 showhn/models.py
+showhn/search.py
 showhn/tests.py
 showhn/views.py
 showhn.egg-info/PKG-INFO
