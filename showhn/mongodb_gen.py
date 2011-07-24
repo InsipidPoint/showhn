@@ -1,5 +1,6 @@
 import Search
 from pymongo import Connection
+import pymongo
 
 connection = Connection()
 db = connection['showhn']
@@ -15,7 +16,7 @@ while (bool):
     try:
         posts_collection.insert(posts,safe=True)
         bool = False
-    except OperationFailure:
+    except pymongo.errors.OperationFailure:
         posts_collection.drop()
         bool = True
 
