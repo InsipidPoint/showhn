@@ -1,3 +1,14 @@
+
+#
+# Author: MN
+#
+# Script to update show hn database
+# get new posts asks for the string query, and the pre-existing collection
+#
+#
+
+
+
 import Search
 from pymongo import Connection
 import pymongo

@@ -1,3 +1,11 @@
+#
+# Author: MN
+#
+# creates a new mongodb database with the first thousand
+# and last thousand posts that the queries "show hn" and "showhn" find
+# in collection 'posts'
+#
+
 import Search
 from pymongo import Connection
 import pymongo
