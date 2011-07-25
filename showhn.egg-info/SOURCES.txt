@@ -5,10 +5,16 @@ development.ini
 production.ini
 setup.cfg
 setup.py
+showhn/Search.py
 showhn/__init__.py
+showhn/gen_sample_screenshots.py
+showhn/gen_screenshots.py
 showhn/models.py
+showhn/mongodb_gen.py
+showhn/screenshot_api.py
 showhn/search.py
 showhn/tests.py
+showhn/update.py
 showhn/views.py
 showhn.egg-info/PKG-INFO
 showhn.egg-info/SOURCES.txt
