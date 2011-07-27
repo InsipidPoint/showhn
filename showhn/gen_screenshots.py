@@ -13,8 +13,8 @@ from screenshot_api import save_file_to_fs
 from screenshot_api import screenshot
 
 if __name__ == '__main__':
-    SELECTED_QUALITY = 0
-    SELECTED_WIDTH = 0
+    SELECTED_QUALITY = 70
+    SELECTED_WIDTH = 500
 
     connection = Connection()
     db = connection['showhn']
