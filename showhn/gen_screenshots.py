@@ -12,30 +12,31 @@ from pymongo import Connection
 from screenshot_api import save_file_to_fs
 from screenshot_api import screenshot
 
-SELECTED_QUALITY = 0
-SELECTED_WIDTH = 0
+if __name__ == '__main__':
+    SELECTED_QUALITY = 0
+    SELECTED_WIDTH = 0
 
-connection = Connection()
-db = connection['showhn']
-posts_collection = db['posts']
+    connection = Connection()
+    db = connection['showhn']
+    posts_collection = db['posts']
 
-dir = sys.argv[1]
+    dir = sys.argv[1]
 
-if dir[-1] is '/':
-    formatted_dir = dir
-else:
-    formatted_dir = dir + '/'
+    if dir[-1] is '/':
+        formatted_dir = dir
+    else:
+        formatted_dir = dir + '/'
 
-cursor = posts_collection.find()
-for post in cursor:
-    if not "filename" in post:
-        url = post['item']['url']
+    cursor = posts_collection.find()
+    for post in cursor:
+        if not "filename" in post:
+            url = post['item']['url']
 
-        if url:
-            hnid = post['item']['id']
-            filename = formatted_dir + hnid + '.jpg'
-            quality = SELECTED_QUALITY
-            width = SELECTED_WIDTH
-            save_file_to_fs(screenshot(url, width, quality), filename)
-            post['filename'] = filename
-            posts_collection.save(post)
+            if url:
+                hnid = post['item']['id']
+                filename = formatted_dir + hnid + '.jpg'
+                quality = SELECTED_QUALITY
+                width = SELECTED_WIDTH
+                save_file_to_fs(screenshot(url, width, quality), filename)
+                post['filename'] = filename
+                posts_collection.save(post)

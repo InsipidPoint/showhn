@@ -14,5 +14,7 @@ def main(global_config, **settings):
     config.add_view('showhn.views.my_view',
                     route_name='home',
                     renderer='templates/mytemplate.pt')
+    config.add_route('view', '/view')
+    config.scan('showhn')
     return config.make_wsgi_app()
 
