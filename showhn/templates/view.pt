@@ -1,0 +1,27 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" xmlns:tal="http://xml.zope.org/namespaces/tal">
+<head>
+  <title>Show HN</title>
+  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/>
+  <meta name="keywords" content="show hn hacker news ycombinator" />
+  <meta name="description" content="showhn" />
+  <link rel="shortcut icon" href="${request.static_url('showhn:static/favicon.ico')}" />
+  <link rel="stylesheet" href="${request.static_url('showhn:static/showhn.css')}" type="text/css" media="screen" charset="utf-8" />
+  <!-- link rel="stylesheet" href="http://static.pylonsproject.org/fonts/nobile/stylesheet.css" media="screen">
+  <link rel="stylesheet" href="http://static.pylonsproject.org/fonts/neuton/stylesheet.css" media="screen" -->
+  <!--[if lte IE 6]>
+  <link rel="stylesheet" href="${request.static_url('showhn:static/ie6.css')}" type="text/css" media="screen" charset="utf-8" />
+  <![endif]-->
+</head>
+<body>
+  <div id="content">
+      <h1>Show HN</h1>
+      <div id="posts">
+          <div tal:repeat="post posts" class="postwrapper">
+              <div class="postinfo">
+                  Title: ${post['item']['title'][8:-1]} User: ${post['item']['username']} Comments: ${post['item']['num_comments']} ID: ${post['item']['id']}
+              </div>
+          </div> 
+      </div>
+  </div>
+</body>
+</html>

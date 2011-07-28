@@ -19,7 +19,7 @@ MAX_LIMIT = 1000
 def search(query,start_point,modifier="asc", query_size = MAX_QUERY):
     if query_size > MAX_QUERY or query_size < 0:
         return None
-    queryDict = {"q":query,"start":start_point,"limit":query_size,"sortby":"create_ts " + modifier}
+    queryDict = {"q":query,"start":start_point,"limit":query_size,"sortby":"create_ts " + modifier,"filter[fields][type]":"submission"}
     urlencoding = urllib.urlencode(queryDict)
     url = "http://api.thriftdb.com/api.hnsearch.com/items/_search?"
     req = urllib2.urlopen(url +urlencoding)
