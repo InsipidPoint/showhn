@@ -5,3 +5,4 @@
 *~
 *.jpg
 env/
+*secret.py

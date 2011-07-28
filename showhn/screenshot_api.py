@@ -14,8 +14,15 @@
 import urllib2
 #from gridfs import GridFS
 
-def screenshot(url, width, quality):
-    img_file = urllib2.urlopen("http://api.thumbalizr.com/?url=" + url + "&width=" + str(width) + "&quality=" + str(quality) + "&api_key=212380fdbca6529fc3295bcc4a107ff6")
+bounds="300x300"
+
+def screenshot(url):
+    api_key="-Your-API-Key-"
+    secret="-Your-Secret-"
+    token = hashlib.md5( "%s+%s" % (secret, url) ).hexdigest()
+    url = "http://api.url2png.com/v3/%s/%s/%s/%s" % (api_key, token, BOUNDS, url)
+
+    img_file = urllib2.urlopen(url)
     return img_file
 
 #began building out a gridFS solution, but 
