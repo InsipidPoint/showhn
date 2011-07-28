@@ -17,8 +17,14 @@
       <h1>Show HN</h1>
       <div id="posts">
           <div tal:repeat="post posts" class="postwrapper">
-              <div class="postinfo">
-                  Title: ${post['item']['title'][8:-1]} User: ${post['item']['username']} Comments: ${post['item']['num_comments']} ID: ${post['item']['id']}
+              <div class="post">
+                  <img src="${request.static_url('showhn:static/test.jpg')}" />
+                  <div class="title">
+                      ${post['item']['title'][8:-1]}
+                  </div>
+                  <div class="info">
+                      ${post['item']['username']} ${post['item']['points']}pts ${post['item']['num_comments']}cmts
+                  </div>
               </div>
           </div> 
       </div>
