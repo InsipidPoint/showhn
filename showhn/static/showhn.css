@@ -1,5 +1,5 @@
 h1 {
-    margin-left: 10px;
+    margin-left: 6px;
     margin-bottom: 5px;
 }
 
@@ -12,9 +12,13 @@ body {
 .post {
     background: #FFF;
     width: 300px;
-    margin: 10px;
+    margin: 6px;
     float: left;
     font-size: 13px;
+
+    -moz-box-shadow: 5px 5px 5px #ccc;
+    -webkit-box-shadow: 5px 5px 5px #ccc;
+    box-shadow: 5px 5px 5px #ccc; 
 }
 
 .post .title {
