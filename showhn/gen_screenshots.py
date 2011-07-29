@@ -9,8 +9,8 @@
 
 import sys
 from pymongo import Connection
-from screenshot_api import save_file_to_fs
-from screenshot_api import screenshot
+from thumbalizr_api import save_file_to_fs
+from thumbalizr_api import screenshot
 
 if __name__ == '__main__':
     SELECTED_QUALITY = 70
@@ -34,9 +34,14 @@ if __name__ == '__main__':
 
             if url:
                 hnid = post['item']['id']
-                filename = formatted_dir + hnid + '.jpg'
-                quality = SELECTED_QUALITY
-                width = SELECTED_WIDTH
-                save_file_to_fs(screenshot(url, width, quality), filename)
-                post['filename'] = filename
-                posts_collection.save(post)
+                filename = formatted_dir + str(hnid) + '.jpg'
+
+                try:
+                    open(filename)
+                except:
+                
+                    quality = SELECTED_QUALITY
+                    width = SELECTED_WIDTH
+                    save_file_to_fs(screenshot(url, width, quality), filename)
+                #                post['filename'] = filename
+                    posts_collection.save(post)
