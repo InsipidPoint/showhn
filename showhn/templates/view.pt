@@ -1,33 +1,44 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" xmlns:tal="http://xml.zope.org/namespaces/tal">
-<head>
-  <title>Show HN</title>
-  <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/>
-  <meta name="keywords" content="show hn hacker news ycombinator" />
-  <meta name="description" content="showhn" />
-  <link rel="shortcut icon" href="${request.static_url('showhn:static/favicon.ico')}" />
-  <link rel="stylesheet" href="${request.static_url('showhn:static/showhn.css')}" type="text/css" media="screen" charset="utf-8" />
-  <!-- link rel="stylesheet" href="http://static.pylonsproject.org/fonts/nobile/stylesheet.css" media="screen">
-  <link rel="stylesheet" href="http://static.pylonsproject.org/fonts/neuton/stylesheet.css" media="screen" -->
-  <!--[if lte IE 6]>
-  <link rel="stylesheet" href="${request.static_url('showhn:static/ie6.css')}" type="text/css" media="screen" charset="utf-8" />
-  <![endif]-->
+    <head>
+        <title>Show HN</title>
+        <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/>
+        <meta name="keywords" content="show hn hacker news ycombinator" />
+        <meta name="description" content="showhn" />
+        <link rel="shortcut icon" href="${request.static_url('showhn:static/favicon.ico')}" />
+        <link rel="stylesheet" href="${request.static_url('showhn:static/showhn.css')}" type="text/css" media="screen" charset="utf-8" />
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js" type="text/javascript"></script>
+        <script type="text/javascript">
+            $(document).ready(function() {
+                $('.time').each(function(index) {
+                    var dt = new Date($(this).text());
+                    var hs = dt.getHours();
+                    if (hs <= 9)
+                        hs = '0'+hs;
+                    var ms = dt.getMinutes();
+                    if (ms <= 9)
+                        ms = '0'+ms;
+                    var dateString = ''+dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate()+' '+hs+':'+ms;
+                    $(this).html(dateString);
+                });
+            });
+        </script>
 </head>
 <body>
-  <div id="content">
-      <h1>Show HN</h1>
-      <div id="posts">
-          <div tal:repeat="post posts" class="postwrapper">
-              <div class="post">
-                  <img src="${request.static_url('showhn:static/test.jpg')}" />
-                  <div class="title">
-                      ${post['item']['title'][8:-1]}
-                  </div>
-                  <div class="info">
-                      ${post['item']['username']} ${post['item']['points']}pts ${post['item']['num_comments']}cmts
-                  </div>
-              </div>
-          </div> 
-      </div>
-  </div>
+    <div id="content">
+        <h1>Show HN</h1>
+        <div id="posts">
+            <div tal:repeat="post posts" class="postwrapper">
+                <div id="${post['item']['id']}" class="post">
+                    <img src="${request.static_url('showhn:static/test.jpg')}" />
+                    <div class="title">
+                        ${post['item']['title'][8:-1]}
+                    </div>
+                    <div class="info">
+                        ${post['item']['username']} ${post['item']['points']}pts ${post['item']['num_comments']}cmts @ <span class="time">${post['item']['create_ts']}</span> 
+                    </div>
+                </div>
+            </div> 
+        </div>
+    </div>
 </body>
 </html>

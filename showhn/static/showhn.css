@@ -1,5 +1,5 @@
 h1 {
-    margin-left: 6px;
+    margin-left: 15px;
     margin-bottom: 5px;
 }
 
@@ -12,7 +12,7 @@ body {
 .post {
     background: #FFF;
     width: 300px;
-    margin: 6px;
+    margin: 15px;
     float: left;
     font-size: 13px;
 
