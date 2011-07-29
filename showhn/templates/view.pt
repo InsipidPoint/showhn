@@ -25,16 +25,16 @@
 </head>
 <body>
     <div id="content">
-        <h1>Show HN</h1>
+        <h1>HN Showcase</h1>
         <div id="posts">
             <div tal:repeat="post posts" class="postwrapper">
-                <div id="${post['item']['id']}" class="post">
+                <div id="${post['id']}" class="post">
                     <img src="${request.static_url('showhn:static/test.jpg')}" />
                     <div class="title">
-                        ${post['item']['title'][8:-1]}
+                        ${post['title'][8:-1]}
                     </div>
                     <div class="info">
-                        ${post['item']['username']} ${post['item']['points']}pts ${post['item']['num_comments']}cmts @ <span class="time">${post['item']['create_ts']}</span> 
+                        ${post['username']} ${post['points']}pts ${post['num_comments']}cmts @ <span class="time">${post['create_ts']}</span> 
                     </div>
                 </div>
             </div> 

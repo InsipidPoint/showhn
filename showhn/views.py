@@ -14,6 +14,9 @@ def my_view(request):
 
 @view_config(route_name='view', renderer='templates/view.pt')
 def view_hn(request):
-    posts = search('"show hn"', 0, 'desc', 20)
+    modifier = 'create_ts desc' if 'sort' not in request.params else request.params['sort']
+    page_start = 0 if 'page' not in request.params else (int(request.params['page'])-1)*12
+    posts = search('"show hn"', page_start, modifier, 12)
+    posts = [p['item'] for p in posts]
     pprint(posts)
     return {'posts':posts}
