@@ -14,7 +14,7 @@ from thumbalizr_api import screenshot
 
 if __name__ == '__main__':
     SELECTED_QUALITY = 70
-    SELECTED_WIDTH = 500
+    SELECTED_WIDTH = 300
 
     connection = Connection()
     db = connection['showhn']
