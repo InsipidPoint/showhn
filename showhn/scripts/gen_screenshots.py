@@ -37,7 +37,8 @@ if __name__ == '__main__':
                 filename = formatted_dir + str(hnid) + '.jpg'
 
                 try:
-                    open(filename)
+                    tmp = open(filename)
+                    tmp.close()
                 except:
                 
                     quality = SELECTED_QUALITY

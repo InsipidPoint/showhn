@@ -3,6 +3,7 @@
 # Search API
 #
 
+
 import urllib2
 import urllib
 import json
@@ -27,7 +28,7 @@ def search(query,start_point, modifier="create_ts desc", query_size = MAX_QUERY)
     return json.load(req)['results']
 
 #gets all MAX_LIMIT either ascending or descending
-def search_for_all(query,modifier="asc"):
+def search_for_all(query,modifier="create_ts asc"):
     start_point = 0
     results = []
     length = MAX_QUERY
@@ -39,7 +40,7 @@ def search_for_all(query,modifier="asc"):
 #gets all MAX_LIMIT for for both ascending and descending
 #for queries that have fewer than 2000 entries, this will fetch them all
 def double_search(query):
-    return search_for_all(query,"asc") + search_for_all(query,"desc")
+    return search_for_all(query,"create_ts asc") + search_for_all(query,"create_ts desc")
 
 #removes duplicates from a list
 def remove_duplicate_results(list_with_duplicates):

@@ -24,7 +24,7 @@ if __name__ == '__main__':
         repeat = False
         to_be_inserted = []
         while (not repeat):
-            lst = Search.search(query, loops * MAX_QUERY, modifier="desc")
+            lst = Search.search(query, loops * MAX_QUERY, modifier="create_ts desc")
             for post in lst:
                 if posts_collection.find_one({"item.id":post['item']['id']}):
                     repeat = True
@@ -34,7 +34,7 @@ if __name__ == '__main__':
             loops += 1
         return to_be_inserted
 
-    to_be_inserted = get_new_posts("'show hn'", posts_collection)
+    to_be_inserted = get_new_posts('"show hn"', posts_collection)
     to_be_inserted.extend(get_new_posts("showhn", posts_collection))
 
     insertions = Search.remove_duplicate_results(to_be_inserted)
