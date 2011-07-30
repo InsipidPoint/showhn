@@ -29,7 +29,7 @@
         </script>
 </head>
 <body>
-    <div id="content">
+    <div id="header">
         <h1>HN Showcase</h1>
         <div id="controls">
             Sort By:
@@ -45,6 +45,8 @@
                 </div>
             </form>
         </div>
+    </div>
+    <div id="content">
         <div id="posts">
             <div tal:repeat="post posts" class="postwrapper">
                 <div id="${post['id']}" class="post">
