@@ -9,6 +9,15 @@ body {
     color: #333;
 }
 
+.radio {
+    font-size: 10px;
+    float: left;
+}
+
+#posts {
+    float: block;
+}
+
 .post {
     background: #FFF;
     width: 300px;

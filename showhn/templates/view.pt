@@ -6,7 +6,9 @@
         <meta name="description" content="showhn" />
         <link rel="shortcut icon" href="${request.static_url('showhn:static/favicon.ico')}" />
         <link rel="stylesheet" href="${request.static_url('showhn:static/showhn.css')}" type="text/css" media="screen" charset="utf-8" />
-        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js" type="text/javascript"></script>
+        <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.14/themes/smoothness/jquery-ui.css" type="text/css" media="screen" charset="utf-8" />
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js" type="text/javascript"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.14/jquery-ui.min.js" type="text/javascript"></script>
         <script type="text/javascript">
             $(document).ready(function() {
                 $('.time').each(function(index) {
@@ -20,12 +22,29 @@
                     var dateString = ''+dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate()+' '+hs+':'+ms;
                     $(this).html(dateString);
                 });
+
+                $("#radio1").buttonset();
+                $("#radio2").buttonset();
             });
         </script>
 </head>
 <body>
     <div id="content">
         <h1>HN Showcase</h1>
+        <div id="controls">
+            Sort By:
+            <form>
+                <div id="radio1" class="radio">
+                    <input type="radio" id="date_radio" name="radio1" checked="checked" /><label for="date_radio">Date</label>
+                    <input type="radio" id="points_radio" name="radio1" /><label for="points_radio">Points</label>
+                    <input type="radio" id="comments_radio" name="radio1" /><label for="comments_radio">Comments</label>
+                </div>
+                <div id="radio2" class="radio">
+                    <input type="radio" id="asc_radio" name="radio2" /><label for="asc_radio">Ascending</label>
+                    <input type="radio" id="desc_radio" name="radio2" checked="checked" /><label for="desc_radio">Descending</label>
+                </div>
+            </form>
+        </div>
         <div id="posts">
             <div tal:repeat="post posts" class="postwrapper">
                 <div id="${post['id']}" class="post">
@@ -39,6 +58,9 @@
                 </div>
             </div> 
         </div>
+    </div>
+    <div id="footer">
+        <!--h5>By Shiwe Song and Moses Nakamura</h5-->
     </div>
 </body>
 </html>
