@@ -9,7 +9,7 @@ def main(global_config, **settings):
     engine = engine_from_config(settings, 'sqlalchemy.')
     initialize_sql(engine)
     config = Configurator(settings=settings)
-    config.add_static_view('static', 'showhn:static')
+    config.add_static_view('static', 'static')
     config.add_route('home', '/')
     config.add_view('showhn.views.my_view',
                     route_name='home',
