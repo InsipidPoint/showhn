@@ -4,7 +4,7 @@ from showhn.models import MyModel
 from pyramid.view import view_config
 from pyramid.response import Response
 
-from Search import search
+from scripts.Search import search
 from pprint import pprint
 
 def my_view(request):
