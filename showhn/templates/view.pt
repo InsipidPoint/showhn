@@ -29,22 +29,23 @@
         </script>
 </head>
 <body>
+    <div id="wrapper">
     <div id="header">
-        <h1>HN Showcase</h1>
-        <div id="controls">
-            Sort By:
-            <form>
-                <div id="radio1" class="radio">
-                    <input type="radio" id="date_radio" name="radio1" checked="checked" /><label for="date_radio">Date</label>
-                    <input type="radio" id="points_radio" name="radio1" /><label for="points_radio">Points</label>
-                    <input type="radio" id="comments_radio" name="radio1" /><label for="comments_radio">Comments</label>
-                </div>
-                <div id="radio2" class="radio">
-                    <input type="radio" id="asc_radio" name="radio2" /><label for="asc_radio">Ascending</label>
-                    <input type="radio" id="desc_radio" name="radio2" checked="checked" /><label for="desc_radio">Descending</label>
-                </div>
-            </form>
-        </div>
+        <span id="titletext"><b>HN Showcase</b></span>
+        <form>
+            <div id="radio1" class="radio">
+                <input type="radio" id="date_radio" name="radio1" checked="checked" /><label for="date_radio">Date</label>
+                <input type="radio" id="points_radio" name="radio1" /><label for="points_radio">Points</label>
+                <input type="radio" id="comments_radio" name="radio1" /><label for="comments_radio">Comments</label>
+            </div>
+        </form>
+        <form>
+            <div id="radio2" class="radio">
+                <input type="radio" id="asc_radio" name="radio2" /><label for="asc_radio">Ascending</label>
+                <input type="radio" id="desc_radio" name="radio2" checked="checked" /><label for="desc_radio">Descending</label>
+            </div>
+        </form>
+       <div style="clear:both;"></div> 
     </div>
     <div id="content">
         <div id="posts">
@@ -59,10 +60,12 @@
                     </div>
                 </div>
             </div> 
+        <div style="clear:both;"></div>
         </div>
     </div>
     <div id="footer">
-        <!--h5>By Shiwe Song and Moses Nakamura</h5-->
+        By Shiwe Song and Moses Nakamura
     </div>
+</div>
 </body>
 </html>

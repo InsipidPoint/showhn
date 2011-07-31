@@ -9,9 +9,35 @@ body {
     color: #333;
 }
 
+#wrapper {
+    margin: 0 auto;
+    width: 1000px;
+    text-align: center;
+}
+
+#header {
+    margin-left: 15px;
+    text-align: left;
+    width: 100%;
+    font-size: 13px;
+}
+
+#titletext {
+    font-size: 30px;
+    margin: 0;
+    padding-right: 20px;
+    width: 220px;
+    float: left;
+}
+
+#footer {
+    font-size: 11px;
+}
+
 .radio {
     font-size: 10px;
     float: left;
+    padding-top: 5px;
 }
 
 #posts {
