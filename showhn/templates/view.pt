@@ -6,9 +6,11 @@
         <meta name="description" content="HN Showcase" />
         <link rel="shortcut icon" href="${request.static_url('showhn:static/favicon.ico')}" />
         <link rel="stylesheet" href="${request.static_url('showhn:static/showhn.css')}" type="text/css" media="screen" charset="utf-8" />
+        <link rel="stylesheet" href="${request.static_url('showhn:static/jPaginate/css/style.css')}" type="text/css" media="screen" charset="utf-8" />
         <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.14/themes/smoothness/jquery-ui.css" type="text/css" media="screen" charset="utf-8" />
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js" type="text/javascript"></script>
         <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.14/jquery-ui.min.js" type="text/javascript"></script>
+        <script src="${request.static_url('showhn:static/jPaginate/jquery.paginate.js')}" type="text/javascript"></script>
         <script type="text/javascript">
             $(document).ready(function() {
                 $('.time').each(function(index) {
@@ -27,7 +29,17 @@
                 $('.radio').change(function() {
                     window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+'+$('input:checked','#radio2').attr('id'));
                 });
-                //$("#radio2").buttonset();
+
+                $('#page').paginate({
+count 		: 50,
+				start 		: 5,
+				display     : 10,
+				border					: false,
+				text_color  			: '#888',
+				background_color    	: '#EEE',	
+				text_hover_color  		: 'black',
+				background_hover_color	: '#CFCFCF'
+                    });
             });
         </script>
 </head>
@@ -63,7 +75,10 @@
                     </div>
                 </div>
             </div> 
-        <div style="clear:both;"></div>
+            <div style="clear:both;"></div>
+            <div class="page_wrapper">
+                <div id="page"></div>
+            </div>
         </div>
     </div>
     <div id="footer">
