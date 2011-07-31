@@ -1,9 +1,9 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" xmlns:tal="http://xml.zope.org/namespaces/tal">
     <head>
-        <title>Show HN</title>
+        <title>HN Showcase</title>
         <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/>
         <meta name="keywords" content="show hn hacker news ycombinator" />
-        <meta name="description" content="showhn" />
+        <meta name="description" content="HN Showcase" />
         <link rel="shortcut icon" href="${request.static_url('showhn:static/favicon.ico')}" />
         <link rel="stylesheet" href="${request.static_url('showhn:static/showhn.css')}" type="text/css" media="screen" charset="utf-8" />
         <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.14/themes/smoothness/jquery-ui.css" type="text/css" media="screen" charset="utf-8" />
@@ -23,8 +23,11 @@
                     $(this).html(dateString);
                 });
 
-                $("#radio1").buttonset();
-                $("#radio2").buttonset();
+                $('.radio').buttonset();
+                $('.radio').change(function() {
+                    window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+'+$('input:checked','#radio2').attr('id'));
+                });
+                //$("#radio2").buttonset();
             });
         </script>
 </head>
@@ -34,15 +37,15 @@
         <span id="titletext"><b>HN Showcase</b></span>
         <form>
             <div id="radio1" class="radio">
-                <input type="radio" id="date_radio" name="radio1" checked="checked" /><label for="date_radio">Date</label>
-                <input type="radio" id="points_radio" name="radio1" /><label for="points_radio">Points</label>
-                <input type="radio" id="comments_radio" name="radio1" /><label for="comments_radio">Comments</label>
+                <input type="radio" id="create_ts" name="radio1" ${create_ts} /><label for="create_ts">Date</label>
+                <input type="radio" id="points" name="radio1" ${points} /><label for="points">Points</label>
+                <input type="radio" id="num_comments" name="radio1" ${num_comments} /><label for="num_comments">Comments</label>
             </div>
         </form>
         <form>
             <div id="radio2" class="radio">
-                <input type="radio" id="asc_radio" name="radio2" /><label for="asc_radio">Ascending</label>
-                <input type="radio" id="desc_radio" name="radio2" checked="checked" /><label for="desc_radio">Descending</label>
+                <input type="radio" id="asc" name="radio2" ${asc} /><label for="asc">Ascending</label>
+                <input type="radio" id="desc" name="radio2" ${desc} /><label for="desc">Descending</label>
             </div>
         </form>
        <div style="clear:both;"></div> 
@@ -64,7 +67,7 @@
         </div>
     </div>
     <div id="footer">
-        By Shiwe Song and Moses Nakamura
+        By Shiwei Song and Moses Nakamura
     </div>
 </div>
 </body>

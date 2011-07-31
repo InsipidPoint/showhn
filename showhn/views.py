@@ -19,4 +19,8 @@ def view_hn(request):
     posts = search('"show hn"', page_start, modifier, 12)
     posts = [p['item'] for p in posts]
     pprint(posts)
-    return {'posts':posts}
+    radio = modifier.split()
+    template_map = {'posts':posts, 'create_ts':'', 'points':'', 'num_comments':'', 'asc':'', 'desc':''}
+    template_map[radio[0]] = 'checked="checked"'
+    template_map[radio[1]] = 'checked="checked"'
+    return template_map
