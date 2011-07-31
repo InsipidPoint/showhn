@@ -70,7 +70,12 @@ body {
 
 .post_image {
     width: 300px;
-    height: 240px;
+    height: 210px;
+}
+
+.post_image img {
+    position: absolute;
+    clip:rect(0px,300px,210px,0px);
 }
 
 .page_wrapper {
