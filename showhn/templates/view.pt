@@ -27,18 +27,20 @@
 
                 $('.radio').buttonset();
                 $('.radio').change(function() {
-                    window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+'+$('input:checked','#radio2').attr('id'));
+                    window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+'+$('input:checked','#radio2').attr('id')+'&page=${current}');
                 });
 
-                $('#page').paginate({
-count 		: 50,
-				start 		: 5,
-				display     : 10,
+                $('.page').paginate({count:${pages},
+                    start:${current},
+				display: 15,
 				border					: false,
 				text_color  			: '#888',
 				background_color    	: '#EEE',	
 				text_hover_color  		: 'black',
-				background_hover_color	: '#CFCFCF'
+                background_hover_color	: '#CFCFCF',
+                onChange:function(page){
+window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+'+$('input:checked','#radio2').attr('id')+'&page='+page);
+                }
                     });
             });
         </script>
@@ -63,6 +65,9 @@ count 		: 50,
        <div style="clear:both;"></div> 
     </div>
     <div id="content">
+        <div class="page_wrapper">
+            <div class="page"></div>
+        </div>
         <div id="posts">
             <div tal:repeat="post posts" class="postwrapper">
                 <div id="${post['id']}" class="post">
@@ -76,9 +81,9 @@ count 		: 50,
                 </div>
             </div> 
             <div style="clear:both;"></div>
-            <div class="page_wrapper">
-                <div id="page"></div>
-            </div>
+        </div>
+        <div class="page_wrapper">
+            <div class="page"></div>
         </div>
     </div>
     <div id="footer">

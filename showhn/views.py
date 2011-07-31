@@ -16,11 +16,11 @@ def my_view(request):
 def view_hn(request):
     modifier = 'create_ts desc' if 'sort' not in request.params else request.params['sort']
     page_start = 0 if 'page' not in request.params else (int(request.params['page'])-1)*12
-    posts = search('"show hn"', page_start, modifier, 12)
-    posts = [p['item'] for p in posts]
+    search_result = search('"show hn"', page_start, modifier, 12)
+    posts = [p['item'] for p in search_result[1]]
     pprint(posts)
     radio = modifier.split()
-    template_map = {'posts':posts, 'create_ts':'', 'points':'', 'num_comments':'', 'asc':'', 'desc':''}
+    template_map = {'posts':posts, 'create_ts':'', 'points':'', 'num_comments':'', 'asc':'', 'desc':'', 'pages':search_result[0]/12, 'current':page_start/12+1}
     template_map[radio[0]] = 'checked="checked"'
     template_map[radio[1]] = 'checked="checked"'
     return template_map

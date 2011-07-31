@@ -69,7 +69,6 @@ body {
 }
 
 .page_wrapper {
-    width: 362px;
-    margin: auto;
+    padding-left: 20px;
 }
 
