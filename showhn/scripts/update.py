@@ -24,7 +24,7 @@ if __name__ == '__main__':
         repeat = False
         to_be_inserted = []
         while (not repeat):
-            lst = Search.search(query, loops * MAX_QUERY, modifier="create_ts desc")
+            lst = Search.search(query, loops * MAX_QUERY, modifier="create_ts desc")[1]
             for post in lst:
                 if posts_collection.find_one({"item.id":post['item']['id']}):
                     repeat = True

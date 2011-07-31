@@ -25,7 +25,8 @@ def search(query,start_point, modifier="create_ts desc", query_size = MAX_QUERY)
     urlencoding = urllib.urlencode(queryDict)
     url = "http://api.thriftdb.com/api.hnsearch.com/items/_search?"
     req = urllib2.urlopen(url +urlencoding)
-    return json.load(req)['results']
+    ret_dict = json.load(req)
+    return (ret_dict['hits'], ret_dict['results'])
 
 #gets all MAX_LIMIT either ascending or descending
 def search_for_all(query,modifier="create_ts asc"):
@@ -33,7 +34,7 @@ def search_for_all(query,modifier="create_ts asc"):
     results = []
     length = MAX_QUERY
     while start_point + MAX_QUERY <= MAX_LIMIT:
-        results += search(query,start_point,modifier=modifier)
+        results += search(query, start_point, modifier=modifier)[1]
         start_point += MAX_QUERY
     return results
 
