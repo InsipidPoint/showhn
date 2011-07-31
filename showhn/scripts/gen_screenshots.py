@@ -20,12 +20,12 @@ if __name__ == '__main__':
     db = connection['showhn']
     posts_collection = db['posts']
 
-    dir = sys.argv[1]
+    direc = sys.argv[1]
 
-    if dir[-1] is '/':
-        formatted_dir = dir
+    if direc[-1] is '/':
+        formatted_dir = direc
     else:
-        formatted_dir = dir + '/'
+        formatted_dir = direc + '/'
 
     cursor = posts_collection.find()
     for post in cursor:
