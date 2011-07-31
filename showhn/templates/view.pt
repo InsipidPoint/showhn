@@ -71,9 +71,9 @@ window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+
         <div id="posts">
             <div tal:repeat="post posts" class="postwrapper">
                 <div id="${post['id']}" class="post">
-                    <img src="${image_map[post['id']]}" />
-                    <div class="title">
-                        ${post['title'][8:]}
+                    <div class="post_image_title">
+                        <div class="post_image"><img src="${image_map[post['id']]}" /></div>
+                        <div class="title">${post['title'][8:]}</div>
                     </div>
                     <div class="info">
                         ${post['username']} ${post['points']}pts ${post['num_comments']}cmts @ <span class="time">${post['create_ts']}</span> 
