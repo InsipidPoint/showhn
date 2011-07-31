@@ -27,7 +27,7 @@
 
                 $('.radio').buttonset();
                 $('.radio').change(function() {
-                    window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+'+$('input:checked','#radio2').attr('id')+'&page=${current}');
+                    window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+'+$('input:checked','#radio2').attr('id')+'&page=1');
                 });
 
                 $('.page').paginate({count:${pages},
