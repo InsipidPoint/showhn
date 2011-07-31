@@ -5,6 +5,7 @@ from screenshot_api import screenshot
 from threading import Thread
 
 DUMMY_FILENAME = "dummy.jpg"
+NONE_FILENAME = "none.jpg"
 SELECTED_QUALITY = 70
 SELECTED_WIDTH = 500
 
@@ -18,12 +19,16 @@ def fetch(ids_and_urls, directory):
 
     ret_dict = {}
     dummy = formatted_dir + DUMMY_FILENAME
+    nonefile = formatted_dir + NONE_FILENAME
 
     to_be_found = []
     fetcher = Fetcher()
         
     for id_name, url in ids_and_urls:
         filename = formatted_dir + str(id_name) + '.png'
+        if url is None:
+            ret_dict[id_name] = nonefile
+            continue
         try:
             fp = open(filename)
             fp.close()
@@ -31,7 +36,6 @@ def fetch(ids_and_urls, directory):
             found_file = True
         except:
             found_file = False
-            ret_dict[id_name] = dummy
 
         if not found_file:
             filename = formatted_dir + str(id_name) + '.jpg'

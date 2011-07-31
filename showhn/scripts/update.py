@@ -15,7 +15,7 @@ import pymongo
 
 if __name__ == '__main__':
     MAX_QUERY = 100
-    connection = Connection()
+    connection = Connection("mongodb://root:qFohXA8ISx0uBXjNJz7Z@7fc2f09f.dotcloud.com:12015")
     db = connection["showhn"]
     posts_collection = db['posts']
 

@@ -11,7 +11,7 @@ from pymongo import Connection
 import pymongo
 
 if __name__ == '__main__':
-    connection = Connection()
+    connection = Connection("mongodb://root:qFohXA8ISx0uBXjNJz7Z@7fc2f09f.dotcloud.com:12015")
     db = connection['showhn']
 
 

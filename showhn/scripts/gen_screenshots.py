@@ -16,7 +16,7 @@ if __name__ == '__main__':
     SELECTED_QUALITY = 70
     SELECTED_WIDTH = 300
 
-    connection = Connection()
+    connection = Connection("mongodb://root:qFohXA8ISx0uBXjNJz7Z@7fc2f09f.dotcloud.com:12015")
     db = connection['showhn']
     posts_collection = db['posts']
 
