@@ -3,8 +3,8 @@
 .DS_Store
 *.db
 *~
-*.jpg
 env/
 *secret.py
 TODO
 data
+showhn/static/images
