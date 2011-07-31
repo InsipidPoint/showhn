@@ -4,8 +4,8 @@ from screenshot_api import save_file_to_fs
 from screenshot_api import screenshot
 from threading import Thread
 
-DUMMY_FILENAME = "dummy.jpg"
-NONE_FILENAME = "none.jpg"
+DUMMY_FILENAME = "static/dummy.png"
+NONE_FILENAME = "static/none.png"
 SELECTED_QUALITY = 70
 SELECTED_WIDTH = 500
 
@@ -18,8 +18,8 @@ def fetch(ids_and_urls, directory):
         formatted_dir = directory + '/'
 
     ret_dict = {}
-    dummy = formatted_dir + DUMMY_FILENAME
-    nonefile = formatted_dir + NONE_FILENAME
+    dummy = DUMMY_FILENAME
+    nonefile = NONE_FILENAME
 
     to_be_found = []
     fetcher = Fetcher()
