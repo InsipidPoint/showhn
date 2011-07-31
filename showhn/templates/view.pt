@@ -73,7 +73,7 @@ window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+
                 <div id="${post['id']}" class="post">
                     <img src="${image_map[post['id']]}" />
                     <div class="title">
-                        ${post['title'][8:0]}
+                        ${post['title'][8:]}
                     </div>
                     <div class="info">
                         ${post['username']} ${post['points']}pts ${post['num_comments']}cmts @ <span class="time">${post['create_ts']}</span> 
