@@ -84,8 +84,10 @@ window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+
                 <div id="${post['id']}" class="post">
                     <div class="post_image_title">
                         <a href="${post['url'] if post['url'] else 'http://news.ycombinator.com/item?id='+str(post['id'])}">
-                        <div class="post_image"><img src="${image_map[post['id']]}" /></div>
-                        <div class="title">${post['title'][8:]}</div>
+                            <div class="post_image">
+                                <div class="clip"><img src="${image_map[post['id']]}" /></div>
+                            </div>
+                            <div class="title">${post['title'][8:]}</div>
                         </a>
                     </div>
                     <div class="info">
