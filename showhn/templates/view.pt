@@ -83,11 +83,15 @@ window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+
             <div tal:repeat="post posts" class="postwrapper">
                 <div id="${post['id']}" class="post">
                     <div class="post_image_title">
+                        <a href="${post['url'] if post['url'] else 'http://news.ycombinator.com/item?id='+str(post['id'])}">
                         <div class="post_image"><img src="${image_map[post['id']]}" /></div>
                         <div class="title">${post['title'][8:]}</div>
+                        </a>
                     </div>
                     <div class="info">
-                        ${post['username']} ${post['points']}pts ${post['num_comments']}cmts @ <span class="time">${post['create_ts']}</span> 
+                        <a href="${'http://news.ycombinator.com/item?id='+str(post['id'])}">
+                            ${post['username']} ${post['points']}pts ${post['num_comments']}cmts @ <span class="time">${post['create_ts']}</span>
+                        </a>
                     </div>
                 </div>
             </div> 
