@@ -20,7 +20,7 @@ def view_hn(request):
     page_start = 0 if 'page' not in request.params else (int(request.params['page'])-1)*12
     search_result = search('"show hn"', page_start, modifier, 12)
     posts = [p['item'] for p in search_result[1]]
-    pprint(posts)
+#    pprint(posts)
     radio = modifier.split()
     fetch_list = [(post["id"], post["url"]) for post in posts]
     images_map = fetch(fetch_list, IMAGE_DIRECTORY)
