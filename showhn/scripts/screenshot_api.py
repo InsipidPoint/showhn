@@ -22,8 +22,8 @@ BOUNDS = "300x300"
 def screenshot(url):
     api_key = API_KEY
     secret = SECRET
-    token = hashlib.md5( "%s+%s" % (secret, url) ).hexdigest()
     url_no_spaces = ''.join([x if x != " " else "%20" for x in url])
+    token = hashlib.md5( "%s+%s" % (secret, url_no_spaces) ).hexdigest()
     openable_url = "http://api.url2png.com/v3/%s/%s/%s/%s" % (api_key, token, BOUNDS, url_no_spaces)
     img_file = urllib2.urlopen(openable_url)
     return img_file
