@@ -99,13 +99,17 @@ window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+
             </div> 
             <div style="clear:both;"></div>
         </div>
+    </div>
+    <div class="navbar">
+        <div id="footer">
+            By Shiwei Song and Moses Nakamura
+        </div>
         <div class="page_wrapper">
             <div class="page"></div>
         </div>
+        <div style="clear:both;"></div>
     </div>
-    <div id="footer">
-        By Shiwei Song and Moses Nakamura
-    </div>
+    <br/>
 </div>
 </body>
 </html>

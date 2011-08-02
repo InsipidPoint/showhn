@@ -29,23 +29,25 @@ img {
 }
 
 .navbar {
-    background: #333;
+    background: #444;
     padding: 5px;
-    height: 35px;
-    margin: 15px;
+    margin: 10px 15px 0px 15px;
 }
 
 .page_wrapper {
-    #padding-right: 60px;
     float: right;
-    height: 35px;
     width: 50%;
+}
+
+.page_wrapper .jPaginate {
+    height: 26px;
 }
 
 .navbar form {
     float: left;
     width: 400px;
     font-size: 10px;
+    margin: 0px;
 }
 
 .radio {
@@ -55,7 +57,13 @@ img {
 }
 
 #footer {
-    font-size: 11px;
+    margin-top: 5px;
+    margin-left: 5px;
+    text-align: left;
+    font-size: 15px;
+    color: #FAFAFA;
+    width: 300px;
+    float: left;
 }
 
 #posts {
