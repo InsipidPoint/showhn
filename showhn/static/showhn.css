@@ -9,6 +9,10 @@ body {
     color: #333;
 }
 
+img {
+    border: 0px;
+}
+
 #wrapper {
     margin: 0 auto;
     width: 1000px;
