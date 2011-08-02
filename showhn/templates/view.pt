@@ -54,12 +54,30 @@ window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+
              ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
              var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
              })();
-         </script>        
+         </script>
     </head>
 <body>
     <div id="wrapper">
     <div id="header">
+      <div class="left">
         <h1>HN Showcase</h1>
+      </div>
+      <div class="right">
+	<a href="http://twitter.com/share" class="twitter-share-button" data-url="hnshowcase.com" data-text="this is awesome!" data-count="horizontal" data-via="hnshowcase">Tweet</a><script type="text/javascript" src="http://platform.twitter.com/widgets.js"></script>
+
+<iframe src="http://www.facebook.com/plugins/like.php?href=hnshowcase.com&amp;send=false&amp;layout=button_count&amp;width=50&amp;show_faces=false&amp;action=like&amp;colorscheme=light&amp;font=verdana&amp;height=21" scrolling="no" frameborder="0" style="border:none; overflow:hidden; width:50px; height:21px;" allowTransparency="true"></iframe>
+<a href="http://www.tumblr.com/share" title="Share on Tumblr" style="display:inline-block; text-indent:-9999px; overflow:hidden; width:81px; height:20px; background:url('http://platform.tumblr.com/v1/share_1.png') top left no-repeat transparent;"></a>
+<g:plusone href="http://hnshowcase.com/"></g:plusone>
+<script type="text/javascript">
+  (function() {
+    var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+    po.src = 'https://apis.google.com/js/plusone.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+  })();
+</script>
+<span id="tumblr_button_abc123"></span>
+      </div>
+       <div style="clear:both;"></div> 
     </div>
     <div class="navbar">
         <form>
@@ -111,5 +129,7 @@ window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+
     </div>
     <br/>
 </div>
+    <script type="text/javascript" src="http://platform.tumblr.com/v1/share.js"></script>
+
 </body>
 </html>
