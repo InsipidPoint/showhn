@@ -59,26 +59,26 @@ window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+
 <body>
     <div id="wrapper">
     <div id="header">
-        <span id="titletext"><b>HN Showcase</b></span>
+        <h1>HN Showcase</h1>
+    </div>
+    <div class="navbar">
         <form>
             <div id="radio1" class="radio">
                 <input type="radio" id="create_ts" name="radio1" ${create_ts} /><label for="create_ts">Date</label>
                 <input type="radio" id="points" name="radio1" ${points} /><label for="points">Points</label>
                 <input type="radio" id="num_comments" name="radio1" ${num_comments} /><label for="num_comments">Comments</label>
             </div>
-        </form>
-        <form>
             <div id="radio2" class="radio">
                 <input type="radio" id="asc" name="radio2" ${asc} /><label for="asc">Ascending</label>
                 <input type="radio" id="desc" name="radio2" ${desc} /><label for="desc">Descending</label>
             </div>
         </form>
-       <div style="clear:both;"></div> 
-    </div>
-    <div id="content">
         <div class="page_wrapper">
             <div class="page"></div>
         </div>
+       <div style="clear:both;"></div> 
+    </div>
+    <div id="content">
         <div id="posts">
             <div tal:repeat="post posts" class="postwrapper">
                 <div id="${post['id']}" class="post">
