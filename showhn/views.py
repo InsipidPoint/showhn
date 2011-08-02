@@ -3,6 +3,7 @@ from showhn.models import MyModel
 
 from pyramid.view import view_config
 from pyramid.response import Response
+from pyramid.httpexceptions import HTTPFound
 
 from scripts.Search import search
 from scripts.fetch_screenshots import fetch
@@ -11,9 +12,7 @@ from pprint import pprint
 import re
 
 def my_view(request):
-    dbsession = DBSession()
-    root = dbsession.query(MyModel).filter(MyModel.name==u'root').first()
-    return {'root':root, 'project':'showhn'}
+    return HTTPFound(location=request.route_url('view'))
 
 #returns the shortest url in the text
 def extract_url(text):
