@@ -59,6 +59,19 @@
                     style:{
                         classes:'ui-tooltip-shadow ui-tooltip-dark'
                     }
+                    });
+
+                $('#logolink').qtip({
+                    position:{
+                        at:'bottom center',
+                        my:'top center',
+                    },
+                    style:{
+                        classes:'ui-tooltip-shadow ui-tooltip-dark'
+                    },
+                    content:{
+                        text:'Thanks for visiting!<p/>We are a visual browser for "Show HN" posts on Hacker News.<p/>Follow us on twitter @HNShowcase<p/>Keyboard Shortcuts:<br/>page left: left arrow or j<br/>page right: right arrow or k'
+                    }
                 });
             });
         </script>
@@ -97,7 +110,7 @@
     <div id="wrapper">
     <div id="header">
       <div class="left">
-        <h1><a href="/">HN Showcase</a></h1>
+        <h1><a href="/" id="logolink">HN Showcase</a></h1>
       </div>
       <div class="right">
 <a href="http://twitter.com/share" class="twitter-share-button" data-count="none" data-via="mnnakamura">Tweet</a><script type="text/javascript" src="http://platform.twitter.com/widgets.js"></script>
