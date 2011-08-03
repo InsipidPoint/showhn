@@ -42,7 +42,7 @@ img {
 }
 
 #header .right {
-    margin-right: 0px;
+    margin-right: 8px;
     margin-top: 25px;
     text-align: right;
     width: 45%;
@@ -52,12 +52,12 @@ img {
 .navbar {
     background: #444;
     padding: 5px;
-    margin: 10px 15px 0px 15px;
+    margin: 10px 25px 0px 15px;
 }
 
 .page_wrapper {
     float: right;
-    width: 50%;
+    width: 480px;
 }
 
 .page_wrapper .jPaginate {
@@ -80,23 +80,29 @@ img {
     margin-top: 5px;
     margin-left: 5px;
     text-align: left;
-    font-size: 15px;
+    font-size: 14px;
     color: #CCC;
     width: 300px;
     float: left;
 }
 
 #footer a {
-    text-decoration: underline;
+    text-decoration: none;
+    font-weight: bold;
     color: #BBB;
 }
+
+#footer a:hover {
+    text-decoration: underline;
+}
+
 
 #posts {
     float: block;
 }
 
 .post {
-    background: #FFF;
+    background: #444;
     color: #BBB;
     width: 300px;
     margin: 15px;
@@ -113,25 +119,26 @@ img {
 
 .post .title {
     text-align: left;
-    height: 35px;
-    font-size: 14px;
-    padding: 2px 5px;
+    height: 2em;
+    font-size: 16px;
+    margin: 5px 5px 8px 5px;
+    text-shadow: 0px -1px 0px #000;
 }
 
 .post .info {
     font-size: 11px;
-    padding: 2px 5px;
+    padding: 5px 5px;
 }
 
 .post .info .left {
     float: left;
-    width: 40%;
+    width: 45%;
     text-align: left;
 }
 
 .post .info .right {
     float: right;
-    width: 60%;
+    width: 55%;
     text-align: right;
 }
 

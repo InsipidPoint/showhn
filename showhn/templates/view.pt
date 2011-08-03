@@ -33,13 +33,13 @@ $(document).keydown(function(e){
             $(document).ready(function() {
                 $('.time').each(function(index) {
                     var dt = new Date($(this).text());
-                    var hs = dt.getHours();
-                    if (hs <= 9)
-                        hs = '0'+hs;
-                    var ms = dt.getMinutes();
+                    var ms = dt.getMonth()+1;
                     if (ms <= 9)
                         ms = '0'+ms;
-                    var dateString = ''+dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate()+' '+hs+':'+ms;
+                    var ds = dt.getDate();
+                    if (ds <= 9)
+                        ds = '0'+ds;
+                    var dateString = ''+dt.getFullYear()+'-'+ms+'-'+ds;
                     $(this).html(dateString);
                 });
 
@@ -178,7 +178,7 @@ $(document).keydown(function(e){
                     </div>
                     <a href="${'http://news.ycombinator.com/item?id='+str(post['id'])}" title="${post['text'] if post['text'] else 'No description.'}">
                         <div class="info postbg">
-                            <div class="left">${post['points']} pts ${post['num_comments']} comments</div>
+                            <div class="left">${post['points']} pts | ${post['num_comments']} comments</div>
                             <div class="right">${post['username']} <span class="time">${post['create_ts']}</span></div>
                             <div style="clear:both;"></div>
                         </div>
