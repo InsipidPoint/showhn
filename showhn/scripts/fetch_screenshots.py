@@ -59,7 +59,6 @@ def fetch(ids_and_urls, directory):
 
     thread = Thread(target=fetcher, args = (to_be_found, formatted_dir))
     thread.start()
-
     return ret_dict
 
 class Fetcher:
