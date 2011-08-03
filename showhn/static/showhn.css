@@ -29,6 +29,11 @@ img {
     text-shadow: 1px 1px 0px #FAFAFA;
 }
 
+#header a:link {text-decoration: none; color:#333;}
+#header a:active {text-decoration: none; color:#333;}
+#header a:visited {text-decoration: none; color:#333;}
+#header a:hover {text-decoration: none; color:#333;}
+
 #header .left {
     margin: 0px;
     text-align: left;
@@ -110,7 +115,7 @@ img {
     text-align: left;
     height: 35px;
     font-size: 14px;
-    padding: 0px 5px;
+    padding: 2px 5px;
 }
 
 .post .info {
