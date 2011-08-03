@@ -7,10 +7,12 @@
         <link rel="shortcut icon" href="${request.static_url('showhn:static/favicon.ico')}" />
         <link rel="stylesheet" href="${request.static_url('showhn:static/showhn.css')}" type="text/css" media="screen" charset="utf-8" />
         <link rel="stylesheet" href="${request.static_url('showhn:static/jPaginate/css/style.css')}" type="text/css" media="screen" charset="utf-8" />
+        <link rel="stylesheet" href="${request.static_url('showhn:static/qtip/jquery.qtip.min.css')}" type="text/css" media="screen" charset="utf-8" />
         <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.14/themes/smoothness/jquery-ui.css" type="text/css" media="screen" charset="utf-8" />
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js" type="text/javascript"></script>
         <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.14/jquery-ui.min.js" type="text/javascript"></script>
         <script src="${request.static_url('showhn:static/jPaginate/jquery.paginate.js')}" type="text/javascript"></script>
+        <script src="${request.static_url('showhn:static/qtip/jquery.qtip.min.js')}" type="text/javascript"></script>
         <script type="text/javascript">
             $(document).ready(function() {
                 $('.time').each(function(index) {
@@ -40,6 +42,22 @@
                     background_hover_color	: '#CFCFCF',
                     onChange:function(page) {
                         window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+'+$('input:checked','#radio2').attr('id')+'&page='+page);
+                    }
+                });
+
+                $('a[title]').qtip({
+                    position:{
+                        at:'left top',
+                        my:'bottom left',
+                        viewport:$(window),
+                        adjust:{
+                            method:'flip',
+                            x:10,
+                            y:0
+                        }
+                    },
+                    style:{
+                        classes:'ui-tooltip-shadow ui-tooltip-dark'
                     }
                 });
             });
@@ -126,7 +144,7 @@
                             </div>
                         </a>
                     </div>
-                    <a href="${'http://news.ycombinator.com/item?id='+str(post['id'])}">
+                    <a href="${'http://news.ycombinator.com/item?id='+str(post['id'])}" title="${post['text'] if post['text'] else 'No description.'}">
                         <div class="info postbg">
                             <div class="left">${post['points']} pts ${post['num_comments']} comments</div>
                             <div class="right">${post['username']} <span class="time">${post['create_ts']}</span></div>

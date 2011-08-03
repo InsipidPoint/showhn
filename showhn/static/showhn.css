@@ -151,3 +151,7 @@ img {
     clip:rect(0px 300px 210px 0px);
 }
 
+.ui-tooltip-content {
+    font-size: 12px;
+}
+
