@@ -119,7 +119,7 @@ window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+
     </div>
     <div class="navbar">
         <div id="footer">
-            By Shiwei Song and Moses Nakamura
+            By <a href="http://stanford.edu/~shiweis">Shiwei Song</a> and <a href="https://github.com/mnn2104">Moses Nakamura</a>
         </div>
         <div class="page_wrapper">
             <div class="page"></div>

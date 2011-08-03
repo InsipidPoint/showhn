@@ -82,6 +82,11 @@ img {
     float: left;
 }
 
+#footer a {
+    text-decoration: underline;
+    color: #FAFAFA;
+}
+
 #posts {
     float: block;
 }
