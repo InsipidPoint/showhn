@@ -69,7 +69,6 @@ img {
 .radio {
     font-size: 10px;
     float: left;
-    #padding-top: 5px;
 }
 
 #footer {
@@ -103,6 +102,11 @@ img {
     box-shadow: 5px 5px 5px #ccc; 
 }
 
+.postbg {
+    background: #444;
+    color: #AAA;
+}
+
 .post .title {
     text-align: center;
     height: 35px;
@@ -110,19 +114,18 @@ img {
 
 .post .info {
     font-size: 11px;
-    color: #888;
+    color: #AAA;
     text-align: right;
-    padding-right: 5px;
+    padding: 2px 5px;
 }
 
-.post .info a {
+.post a {
     text-decoration: none;
-    color: #888;
+    color: #AAA;
 }
 
-.post .info a:hover {
+.post a:hover {
     text-decoration: underline;
-    color: #888;
 }
 
 .post_image {
@@ -134,14 +137,5 @@ img {
 .clip {
     position: absolute;
     clip:rect(0px 300px 210px 0px);
-}
-
-.post_image_title a {
-    text-decoration: none;
-    color: #333;
-}
-
-.post_image_title a:hover {
-    text-decoration: underline;
 }
 
