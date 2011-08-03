@@ -128,7 +128,9 @@
                     </div>
                     <a href="${'http://news.ycombinator.com/item?id='+str(post['id'])}">
                         <div class="info postbg">
-                            ${post['username']} ${post['points']}pts ${post['num_comments']}cmts @ <span class="time">${post['create_ts']}</span>
+                            <div class="left">${post['points']} pts ${post['num_comments']} comments</div>
+                            <div class="right">${post['username']} <span class="time">${post['create_ts']}</span></div>
+                            <div style="clear:both;"></div>
                         </div>
                     </a>
                 </div>

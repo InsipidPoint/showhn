@@ -30,7 +30,7 @@ img {
 }
 
 #header .left {
-    margin-left: 0px;
+    margin: 0px;
     text-align: left;
     float: left;
     width: 50%;
@@ -107,16 +107,28 @@ img {
 }
 
 .post .title {
-    text-align: center;
+    text-align: left;
     height: 35px;
     font-size: 14px;
+    padding: 0px 5px;
 }
 
 .post .info {
-    font-size: 12px;
+    font-size: 11px;
     color: #AAA;
-    text-align: right;
     padding: 2px 5px;
+}
+
+.post .info .left {
+    float: left;
+    width: 40%;
+    text-align: left;
+}
+
+.post .info .right {
+    float: right;
+    width: 60%;
+    text-align: right;
 }
 
 .post a {
