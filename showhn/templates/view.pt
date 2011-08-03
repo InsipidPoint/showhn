@@ -203,7 +203,7 @@ $(document).keydown(function(e){
 <script type="text/javascript">
     var tumblr_link_url = "http://hnshowcase.com/";
     var tumblr_link_name = "HN Showcase: A visual browser for 'Show HN' posts";
-    var tumblr_link_description = "If you're like us, Show HN posts are one of your favorite parts of HN.  Sometimes beautiful in their simplicity, they are usually hacks that are written to make the lives of their authors better in some way, the purest form of hacking.  On the other hand, they are sometimes beautifully designed pieces of artistry, pure outlets for aesthetic output.  We make it easier for you to view Show HN articles, even those that might not quite make it to the front page.";
+    var tumblr_link_description = "";
 </script>
 
 <!-- Put this code at the bottom of your page -->
@@ -212,7 +212,7 @@ $(document).keydown(function(e){
     tumblr_button.setAttribute("href", "http://www.tumblr.com/share/link?url=" + encodeURIComponent(tumblr_link_url) + "&name=" + encodeURIComponent(tumblr_link_name) + "&description=" + encodeURIComponent(tumblr_link_description));
     tumblr_button.setAttribute("title", "Share on Tumblr");
     tumblr_button.setAttribute("style", "display:inline-block; text-indent:-9999px; overflow:hidden; width:81px; height:20px; background:url('http://platform.tumblr.com/v1/share_1.png') top left no-repeat transparent;");
-    tumblr_button.innerHTML = "Share on Tumblr";
+    tumblr_button.innerHTML = "";
     document.getElementById("tumblr_button_abc123").appendChild(tumblr_button);
 </script>
 </body>
