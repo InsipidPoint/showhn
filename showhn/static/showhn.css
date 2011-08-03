@@ -76,14 +76,14 @@ img {
     margin-left: 5px;
     text-align: left;
     font-size: 15px;
-    color: #FAFAFA;
+    color: #CCC;
     width: 300px;
     float: left;
 }
 
 #footer a {
     text-decoration: underline;
-    color: #FAFAFA;
+    color: #BBB;
 }
 
 #posts {
@@ -95,7 +95,6 @@ img {
     width: 300px;
     margin: 15px;
     float: left;
-    font-size: 13px;
 
     -moz-box-shadow: 5px 5px 5px #ccc;
     -webkit-box-shadow: 5px 5px 5px #ccc;
@@ -104,16 +103,17 @@ img {
 
 .postbg {
     background: #444;
-    color: #AAA;
+    color: #BBB;
 }
 
 .post .title {
     text-align: center;
     height: 35px;
+    font-size: 14px;
 }
 
 .post .info {
-    font-size: 11px;
+    font-size: 12px;
     color: #AAA;
     text-align: right;
     padding: 2px 5px;

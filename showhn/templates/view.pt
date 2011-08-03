@@ -32,16 +32,16 @@
 
                 $('.page').paginate({count:${pages},
                     start:${current},
-				display: 15,
-				border					: false,
-				text_color  			: '#888',
-				background_color    	: '#EEE',	
-				text_hover_color  		: 'black',
-                background_hover_color	: '#CFCFCF',
-                onChange:function(page){
-window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+'+$('input:checked','#radio2').attr('id')+'&page='+page);
-                }
-                    });
+                    display: 15,
+                    border					: false,
+                    text_color  			: '#888',
+                    background_color    	: '#EEE',	
+                    text_hover_color  		: 'black',
+                    background_hover_color	: '#CFCFCF',
+                    onChange:function(page) {
+                        window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+'+$('input:checked','#radio2').attr('id')+'&page='+page);
+                    }
+                });
             });
         </script>
 
