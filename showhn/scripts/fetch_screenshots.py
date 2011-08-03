@@ -28,9 +28,6 @@ def fetch(ids_and_urls, directory):
         
     for id_name, url in ids_and_urls:
         png_filename = formatted_dir + str(id_name) + '.png'
-        if url is None:
-            ret_dict[id_name] = nonefile
-            continue
         try:
             fp = open(png_filename)
             temp = fp.read()
@@ -50,6 +47,10 @@ def fetch(ids_and_urls, directory):
                 fp.close()
                 ret_dict[id_name] = jpg_filename
             except:
+                if url is None:
+                    ret_dict[id_name] = nonefile
+                    continue
+
                 time_str = str(time())
                 fp = open(png_filename, "w")
                 fp.write(time_str)
