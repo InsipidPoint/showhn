@@ -92,6 +92,7 @@ img {
 
 .post {
     background: #FFF;
+    color: #BBB;
     width: 300px;
     margin: 15px;
     float: left;
@@ -103,7 +104,6 @@ img {
 
 .postbg {
     background: #444;
-    color: #BBB;
 }
 
 .post .title {
@@ -115,7 +115,6 @@ img {
 
 .post .info {
     font-size: 11px;
-    color: #AAA;
     padding: 2px 5px;
 }
 
@@ -133,11 +132,12 @@ img {
 
 .post a {
     text-decoration: none;
-    color: #AAA;
+    color: #BBB;
 }
 
 .post a:hover {
-    text-decoration: underline;
+    text-decoration: none;
+    color: #EEE;
 }
 
 .post_image {
