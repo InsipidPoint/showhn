@@ -44,7 +44,26 @@ window.location.replace('/view?sort='+$('input:checked','#radio1').attr('id')+'+
                     });
             });
         </script>
+
+        <script type="text/javascript" charset="utf-8">
+            // getsatisfaction
+            var is_ssl = ("https:" == document.location.protocol);
+            var asset_host = is_ssl ? "https://s3.amazonaws.com/getsatisfaction.com/" : "http://s3.amazonaws.com/getsatisfaction.com/";
+            document.write(unescape("%3Cscript src='" + asset_host + "javascripts/feedback-v2.js' type='text/javascript'%3E%3C/script%3E"));
+        </script>
+        <script type="text/javascript" charset="utf-8">
+            // getsatisfaction
+            var feedback_widget_options = {};
+            feedback_widget_options.display = "overlay";  
+            feedback_widget_options.company = "hnshowcase";
+            feedback_widget_options.placement = "left";
+            feedback_widget_options.color = "#333";
+            feedback_widget_options.style = "idea";
+            var feedback_widget = new GSFN.feedback_widget(feedback_widget_options);
+        </script>
+
         <script type="text/javascript">
+            // google analytics
             var _gaq = _gaq || [];
             _gaq.push(['_setAccount', 'UA-24864739-1']);
             _gaq.push(['_trackPageview']);
