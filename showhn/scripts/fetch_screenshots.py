@@ -1,7 +1,7 @@
-import sys
+import sys, os
 from pymongo import Connection
-from screenshot_api import save_file_to_fs
-from screenshot_api import screenshot
+from di_screenshot_api import save_file_to_fs
+from di_screenshot_api import screenshot
 from threading import Thread
 from time import time
 
@@ -52,7 +52,7 @@ def fetch(ids_and_urls, directory):
                     continue
 
                 time_str = str(time())
-                fp = open(png_filename, "w")
+                fp = open(jpg_filename, "w")
                 fp.write(time_str)
                 fp.close()
                 ret_dict[id_name] = dummy
@@ -66,7 +66,7 @@ class Fetcher:
     #requires a list of ids and urls
     def __call__(self, ids_and_urls_and_times, formatted_dir):
         for hnid, url, time_str in ids_and_urls_and_times:
-            filename = formatted_dir + str(hnid) + '.png'
+            filename = formatted_dir + str(hnid) + '.jpg'
             try:
                 fp = open(filename)
                 cur_str = fp.read()
