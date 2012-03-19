@@ -6,8 +6,6 @@ from secret import DI_ACCT
 from secret import DI_TOKEN
 
 def screenshot(url):
-    print 'here!!!!!'
-
     #request = urllib2.Request('http://imagify.yi.org/api/')
 
     url_no_spaces = ''.join([x if x != " " else "%20" for x in url])
@@ -16,8 +14,6 @@ def screenshot(url):
     #request.add_data(urllib.urlencode(data))
 
     #img_file = urllib2.urlopen(request)
-
-    print "requeting " + url_no_spaces
 
     openable_url = "http://imagify.yi.org/api?account=%s&token=%s&url=%s&width=1500&height=1050&resize&resize_width=300&resize_height=210" % (DI_ACCT, DI_TOKEN, url_no_spaces)
     img_file = urllib2.urlopen(openable_url)
