@@ -44,19 +44,28 @@ def fetch(ids_and_urls, directory):
             jpg_filename = formatted_dir + str(id_name) + '.jpg'
             try:
                 fp = open(jpg_filename)
+                temp = fp.read()
                 fp.close()
+                if len(temp) < 100:
+                    found_file = False
+                else:
+                    ret_dict[id_name] = jpg_filename
+                    found_file = True
                 ret_dict[id_name] = jpg_filename
             except:
-                if url is None:
-                    ret_dict[id_name] = nonefile
-                    continue
+                found_file = False
 
-                time_str = str(time())
-                fp = open(jpg_filename, "w")
-                fp.write(time_str)
-                fp.close()
-                ret_dict[id_name] = dummy
-                to_be_found.append((id_name,url,time_str))
+        if not found_file:            
+            if url is None:
+                ret_dict[id_name] = nonefile
+                continue
+
+            time_str = str(time())
+            fp = open(jpg_filename, "w")
+            fp.write(time_str)
+            fp.close()
+            ret_dict[id_name] = dummy
+            to_be_found.append((id_name,url,time_str))
 
     thread = Thread(target=fetcher, args = (to_be_found, formatted_dir))
     thread.start()
