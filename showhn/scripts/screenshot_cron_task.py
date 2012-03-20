@@ -21,7 +21,7 @@ def extract_url(text):
         return min_url
 
 if __name__ == '__main__':
-    IMAGE_DIRECTORY = "../static/images"
+    IMAGE_DIRECTORY = "images"
     search_result = search('"show hn"', 0, 'create_ts desc', 16)
     posts = [p['item'] for p in search_result[1]]
     fetch_list = [(post['id'], post['url'] if post['url'] else extract_url(post['text'])) for post in posts]
