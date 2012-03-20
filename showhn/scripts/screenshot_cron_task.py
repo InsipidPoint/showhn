@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/home/dotcloud/env/bin/python
 
 from Search import search
 from fetch_screenshots import fetch
