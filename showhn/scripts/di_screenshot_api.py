@@ -15,7 +15,7 @@ def screenshot(url):
 
     #img_file = urllib2.urlopen(request)
 
-    openable_url = "http://imagify.yi.org/api?account=%s&token=%s&url=%s&width=1500&height=1050&resize&resize_width=300&resize_height=210" % (DI_ACCT, DI_TOKEN, url_no_spaces)
+    openable_url = "http://imagify.yi.org/api/sync?account=%s&token=%s&url=%s&width=1500&height=1050&resize&resize_width=300&resize_height=210" % (DI_ACCT, DI_TOKEN, url_no_spaces)
     img_file = urllib2.urlopen(openable_url)
     return img_file
 
