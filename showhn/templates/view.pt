@@ -190,7 +190,7 @@ $(document).keydown(function(e){
     </div>
     <div class="navbar">
         <div id="footer">
-            By <a href="http://cs.stanford.edu/~shiweis">Shiwei Song</a> and <a href="https://github.com/mnn2104">Moses Nakamura</a>
+            By <a href="http://cs.stanford.edu/~shiweis">Shiwei Song</a> and <a href="https://github.com/mosesn">Moses Nakamura</a>
         </div>
         <div class="page_wrapper">
             <div class="page"></div>
