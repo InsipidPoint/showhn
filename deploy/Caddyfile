@@ -1,0 +1,19 @@
+hnshowcase.com {
+    reverse_proxy localhost:3333
+    encode gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Frame-Options "DENY"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Cache screenshots aggressively
+    @screenshots path /screenshots/*
+    header @screenshots Cache-Control "public, max-age=604800, immutable"
+
+    # Cache static assets
+    @static path /_next/static/*
+    header @static Cache-Control "public, max-age=31536000, immutable"
+}

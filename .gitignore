@@ -1,11 +1,50 @@
-#*#
-*.pyc
+# OS
 .DS_Store
-*.db
 *~
+#*#
+
+# Old Python project
+*.pyc
 env/
 *secret.py
-TODO
-data
 showhn/static/images
-build
+showhn.egg-info/
+
+# Data (old Python project)
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Node.js
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+yarn-debug.log*
+.pnpm-debug.log*
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+.vercel
+
+# Generated assets
+app/public/screenshots/*
+!app/public/screenshots/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+
+# Internal docs (not for public repo)
+PLAN.md
+OPS.md
+
+# Claude Code
+.claude/
