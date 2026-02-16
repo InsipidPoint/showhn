@@ -10,9 +10,15 @@
 
 set -euo pipefail
 
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+export HOME="/root"
+
 APP_DIR="$(cd "$(dirname "$0")/../app" && pwd)"
 LOG_DIR="$APP_DIR/../logs"
 mkdir -p "$LOG_DIR"
+
+# Source env vars for API keys
+[ -f "$APP_DIR/.env.local" ] && export $(grep -v '^#' "$APP_DIR/.env.local" | xargs)
 
 cd "$APP_DIR"
 
