@@ -1,6 +1,21 @@
 module.exports = {
   apps: [
     {
+      name: "hn-static",
+      script: "deploy/static-server.js",
+      env: {
+        STATIC_PORT: 3334,
+      },
+      instances: 1,
+      autorestart: true,
+      max_restarts: 10,
+      restart_delay: 3000,
+      log_date_format: "YYYY-MM-DD HH:mm:ss",
+      error_file: "/root/clawd/projects/showhn/logs/static-error.log",
+      out_file: "/root/clawd/projects/showhn/logs/static-out.log",
+      merge_logs: true,
+    },
+    {
       name: "hn-showcase",
       cwd: "./app",
       script: "node_modules/.bin/next",
