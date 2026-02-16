@@ -64,8 +64,7 @@ async function callOpenAI(prompt: string, model: string): Promise<string> {
   const response = await client.chat.completions.create({
     model,
     messages: [{ role: "user", content: prompt }],
-    temperature: 0.3,
-    max_tokens: 500,
+    max_completion_tokens: 1000,
     response_format: { type: "json_object" },
   });
   return response.choices[0]?.message?.content || "";
