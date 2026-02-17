@@ -45,13 +45,13 @@ function pickTextColor(score: number): string {
 function MiniScoreBar({ score, max, label }: { score: number; max: number; label: string }) {
   const ratio = score / max;
   return (
-    <div className="flex items-center gap-1 min-w-0">
-      <span className="text-[8px] text-muted-foreground/70 w-[28px] shrink-0 truncate">{label}</span>
-      <div className="flex gap-[1px]">
+    <div className="flex items-center gap-1.5 min-w-0">
+      <span className="text-[10px] text-muted-foreground/70 w-[32px] shrink-0 truncate">{label}</span>
+      <div className="flex gap-[1.5px]">
         {Array.from({ length: max }, (_, i) => (
           <div
             key={i}
-            className={`w-[4px] h-[4px] rounded-[0.5px] ${
+            className={`w-[5px] h-[5px] rounded-[1px] ${
               i < score ? scoreColor(ratio) : "bg-muted-foreground/15"
             }`}
           />
