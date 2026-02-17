@@ -39,6 +39,7 @@ module.exports = {
     {
       name: "hn-worker",
       cwd: "./app",
+      exec_mode: "fork",
       script: "node_modules/.bin/tsx",
       args: "scripts/worker.ts",
       env: {
