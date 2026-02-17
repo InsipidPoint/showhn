@@ -10,6 +10,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import * as schema from "../src/lib/db/schema";
 import { enqueuePostTasks } from "../src/lib/queue";
+import { refreshStalePosts } from "../src/lib/refresh";
 import path from "path";
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "showhn.db");
@@ -131,6 +132,10 @@ async function ingest(backfill = false) {
   }
 
   console.log(`[ingest] Done. Fetched ${totalFetched} posts, ${newPosts} new.`);
+
+  // Refresh stale posts via batched Algolia objectID queries
+  const { refreshed } = await refreshStalePosts(db);
+  console.log(`[ingest] Refreshed ${refreshed} stale posts.`);
 }
 
 const isBackfill = process.argv.includes("--backfill");
