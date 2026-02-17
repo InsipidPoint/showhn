@@ -42,23 +42,12 @@ function pickTextColor(score: number): string {
   return "text-green-600 dark:text-green-400";
 }
 
-function MiniScoreBar({ score, max, label }: { score: number; max: number; label: string }) {
-  const ratio = score / max;
-  return (
-    <div className="flex items-center gap-1.5 min-w-0">
-      <span className="text-[10px] text-muted-foreground/70 w-[38px] shrink-0 truncate">{label}</span>
-      <div className="flex gap-[1.5px]">
-        {Array.from({ length: max }, (_, i) => (
-          <div
-            key={i}
-            className={`w-[5px] h-[5px] rounded-[1px] ${
-              i < score ? scoreColor(ratio) : "bg-muted-foreground/15"
-            }`}
-          />
-        ))}
-      </div>
-    </div>
-  );
+// Sub-score number color (1-10 scale)
+function subScoreColor(score: number): string {
+  if (score <= 3) return "text-orange-500 dark:text-orange-400";
+  if (score <= 5) return "text-yellow-600 dark:text-yellow-400";
+  if (score <= 7) return "text-emerald-600 dark:text-emerald-400";
+  return "text-green-600 dark:text-green-400";
 }
 
 function slugify(title: string): string {
@@ -156,15 +145,21 @@ export function PostCard({
           )}
 
           {(analysis?.noveltyScore || analysis?.ambitionScore || analysis?.usefulnessScore) && (
-            <div className="flex items-center gap-3 mb-2 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2 mb-2.5 text-[11px]">
               {analysis.noveltyScore != null && analysis.noveltyScore > 0 && (
-                <span>Novelty <span className="font-semibold text-foreground">{analysis.noveltyScore}</span></span>
+                <span className="text-muted-foreground/70">Novelty <span className={`font-bold ${subScoreColor(analysis.noveltyScore)}`}>{analysis.noveltyScore}</span></span>
               )}
               {analysis.ambitionScore != null && analysis.ambitionScore > 0 && (
-                <span>Craft <span className="font-semibold text-foreground">{analysis.ambitionScore}</span></span>
+                <>
+                  <span className="text-border">·</span>
+                  <span className="text-muted-foreground/70">Craft <span className={`font-bold ${subScoreColor(analysis.ambitionScore)}`}>{analysis.ambitionScore}</span></span>
+                </>
               )}
               {analysis.usefulnessScore != null && analysis.usefulnessScore > 0 && (
-                <span>Appeal <span className="font-semibold text-foreground">{analysis.usefulnessScore}</span></span>
+                <>
+                  <span className="text-border">·</span>
+                  <span className="text-muted-foreground/70">Appeal <span className={`font-bold ${subScoreColor(analysis.usefulnessScore)}`}>{analysis.usefulnessScore}</span></span>
+                </>
               )}
             </div>
           )}
@@ -197,11 +192,7 @@ export function PostCardSkeleton() {
         <div className="h-4 bg-muted rounded animate-pulse w-3/4" />
         <div className="h-3 bg-muted rounded animate-pulse w-full" />
         <div className="h-3 bg-muted rounded animate-pulse w-1/2" />
-        <div className="space-y-1 pt-1">
-          <div className="h-[5px] bg-muted rounded animate-pulse w-24" />
-          <div className="h-[5px] bg-muted rounded animate-pulse w-24" />
-          <div className="h-[5px] bg-muted rounded animate-pulse w-24" />
-        </div>
+        <div className="h-3 bg-muted rounded animate-pulse w-40 pt-1" />
         <div className="flex justify-between pt-1">
           <div className="h-3 bg-muted rounded animate-pulse w-16" />
           <div className="h-3 bg-muted rounded animate-pulse w-24" />
