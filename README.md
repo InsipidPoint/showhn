@@ -16,7 +16,7 @@ An AI-powered visual gallery for [Show HN](https://news.ycombinator.com/showhn.h
 
 ## Tech Stack
 
-- **Frontend:** Next.js 15 (App Router), React 19, Tailwind CSS 4, shadcn/ui
+- **Frontend:** Next.js 16 (App Router), React 19, Tailwind CSS 4, shadcn/ui
 - **Database:** SQLite + Drizzle ORM + FTS5 for search
 - **AI:** Configurable LLM pipeline (OpenAI or Anthropic)
 - **Screenshots:** Playwright (headless Chromium)
@@ -79,7 +79,7 @@ See [`.env.example`](app/.env.example) for all available options:
 |----------|---------|-------------|
 | `DATABASE_PATH` | `./data/showhn.db` | Path to SQLite database |
 | `ANALYSIS_PROVIDER` | `openai` | LLM provider (`openai` or `anthropic`) |
-| `ANALYSIS_MODEL` | `gpt-4o-mini` | Model name for analysis |
+| `ANALYSIS_MODEL` | `gpt-5-mini` | Model name for analysis |
 | `OPENAI_API_KEY` | — | OpenAI API key |
 | `ANTHROPIC_API_KEY` | — | Anthropic API key |
 | `SCREENSHOT_CONCURRENCY` | `4` | Parallel browser instances |
@@ -93,7 +93,7 @@ npm run build
 PORT=3333 npm start
 ```
 
-Use a reverse proxy (Caddy, nginx) in front for HTTPS. See [`deploy/`](deploy/) for example configs.
+Uses PM2 for process management and Traefik (via Dokploy) as reverse proxy behind Cloudflare. See [`OPS.md`](OPS.md) for the full operations runbook and [`deploy/`](deploy/) for configs.
 
 ## Project Structure
 
