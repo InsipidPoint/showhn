@@ -39,8 +39,10 @@ export const aiAnalysis = sqliteTable(
     noveltyScore: integer("novelty_score"), // 1-10: How new/unique is this idea?
     ambitionScore: integer("ambition_score"), // 1-10: Technical depth and scope
     usefulnessScore: integer("usefulness_score"), // 1-10: Impact for target audience
-    pickReason: text("pick_reason"), // One sentence: why this stands out
-    pickScore: integer("pick_score"), // 0-100 composite from AI sub-scores
+    pickReason: text("pick_reason"), // Editorial highlight (2-3 sentences)
+    pickScore: integer("pick_score"), // Derived from tier for sorting
+    tier: text("tier"), // gem | banger | solid | mid | pass
+    vibeTags: text("vibe_tags"), // JSON array of playful vibe tags
     analyzedAt: integer("analyzed_at").notNull(),
     model: text("model").notNull(),
   },

@@ -16,7 +16,7 @@ const SORT_OPTIONS = [
   { label: "Newest", value: "newest" },
   { label: "Most Upvoted", value: "points" },
   { label: "Most Discussed", value: "comments" },
-  { label: "AI Picks", value: "interesting" },
+  { label: "Best Vibes", value: "interesting" },
 ] as const;
 
 type FilterState = {

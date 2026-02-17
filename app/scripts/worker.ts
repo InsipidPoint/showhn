@@ -12,7 +12,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq, and, isNotNull } from "drizzle-orm";
 import { chromium, type Browser } from "playwright";
 import * as schema from "../src/lib/db/schema";
-import { analyzePost, computePickScore } from "../src/lib/ai/llm";
+import { analyzePost, tierToPickScore } from "../src/lib/ai/llm";
 import {
   dequeueTask,
   completeTask,
@@ -73,6 +73,12 @@ try {
 try {
   sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_analysis_pick_score ON ai_analysis(pick_score)`);
 } catch { /* index already exists */ }
+try {
+  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN tier TEXT`);
+} catch { /* column already exists */ }
+try {
+  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN vibe_tags TEXT`);
+} catch { /* column already exists */ }
 
 // Screenshot config
 const SCREENSHOT_DIR = path.join(process.cwd(), "public", "screenshots");
@@ -287,11 +293,7 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
       readmeContent
     );
 
-    const pickScore = computePickScore(
-      result.novelty_score,
-      result.usefulness_score,
-      result.ambition_score
-    );
+    const pickScore = tierToPickScore(result.tier);
     const now = Math.floor(Date.now() / 1000);
 
     db.insert(schema.aiAnalysis)
@@ -308,8 +310,10 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
         noveltyScore: result.novelty_score,
         ambitionScore: result.ambition_score,
         usefulnessScore: result.usefulness_score,
-        pickReason: result.pick_reason,
+        pickReason: result.highlight,
         pickScore,
+        tier: result.tier,
+        vibeTags: JSON.stringify(result.vibe_tags),
         analyzedAt: now,
         model,
       })
@@ -326,8 +330,10 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
           noveltyScore: result.novelty_score,
           ambitionScore: result.ambition_score,
           usefulnessScore: result.usefulness_score,
-          pickReason: result.pick_reason,
+          pickReason: result.highlight,
           pickScore,
+          tier: result.tier,
+          vibeTags: JSON.stringify(result.vibe_tags),
           analyzedAt: now,
           model,
         },
@@ -335,7 +341,7 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
       .run();
 
     completeTask(db, task.id);
-    console.log(`  [analyze] ✓ Post ${post.id}: ${post.title.slice(0, 50)}`);
+    console.log(`  [analyze] ✓ Post ${post.id}: [${result.tier}] ${post.title.slice(0, 50)}`);
   } catch (err) {
     failTask(db, task.id, (err as Error).message);
     console.error(`  [analyze] ✗ Post ${post.id}: ${(err as Error).message}`);
@@ -482,11 +488,7 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
       readmeContent || undefined
     );
 
-    const pickScore = computePickScore(
-      result.novelty_score,
-      result.usefulness_score,
-      result.ambition_score
-    );
+    const pickScore = tierToPickScore(result.tier);
     const now = Math.floor(Date.now() / 1000);
 
     db.insert(schema.aiAnalysis)
@@ -503,8 +505,10 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
         noveltyScore: result.novelty_score,
         ambitionScore: result.ambition_score,
         usefulnessScore: result.usefulness_score,
-        pickReason: result.pick_reason,
+        pickReason: result.highlight,
         pickScore,
+        tier: result.tier,
+        vibeTags: JSON.stringify(result.vibe_tags),
         analyzedAt: now,
         model,
       })
@@ -521,8 +525,10 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
           noveltyScore: result.novelty_score,
           ambitionScore: result.ambition_score,
           usefulnessScore: result.usefulness_score,
-          pickReason: result.pick_reason,
+          pickReason: result.highlight,
           pickScore,
+          tier: result.tier,
+          vibeTags: JSON.stringify(result.vibe_tags),
           analyzedAt: now,
           model,
         },
@@ -530,7 +536,7 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
       .run();
 
     completeTask(db, task.id);
-    console.log(`  [process] ✓ Post ${post.id}: ${post.title.slice(0, 50)} (pickScore=${pickScore})`);
+    console.log(`  [process] ✓ Post ${post.id}: [${result.tier}] ${post.title.slice(0, 50)}`);
   } catch (err) {
     // If screenshot succeeded but analysis failed, still mark screenshot
     if (!screenshotSuccess && (task.attempts ?? 0) >= (task.maxAttempts ?? 3)) {

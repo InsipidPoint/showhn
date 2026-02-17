@@ -2,52 +2,58 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import Link from "next/link";
 import type { Post, AiAnalysis } from "@/lib/db/schema";
+import { TIER_LABELS, type Tier } from "@/lib/ai/llm";
 
-function scoreColor(ratio: number): string {
-  if (ratio <= 0.2) return "bg-red-400 dark:bg-red-500";
-  if (ratio <= 0.4) return "bg-orange-400 dark:bg-orange-500";
-  if (ratio <= 0.6) return "bg-yellow-400 dark:bg-yellow-500";
-  if (ratio <= 0.8) return "bg-emerald-400 dark:bg-emerald-500";
-  return "bg-green-500 dark:bg-green-400";
+// Tier styling — each tier gets a distinct color personality
+const tierStyles: Record<string, { badge: string; border: string; text: string }> = {
+  gem: {
+    badge: "bg-violet-500/90 text-white dark:bg-violet-400/90 dark:text-violet-950",
+    border: "border-violet-400/60 dark:border-violet-400/60",
+    text: "text-violet-600 dark:text-violet-400",
+  },
+  banger: {
+    badge: "bg-amber-500/90 text-white dark:bg-amber-400/90 dark:text-amber-950",
+    border: "border-amber-400/60 dark:border-amber-400/60",
+    text: "text-amber-600 dark:text-amber-400",
+  },
+  solid: {
+    badge: "bg-emerald-500/90 text-white dark:bg-emerald-400/90 dark:text-emerald-950",
+    border: "border-emerald-400/60 dark:border-emerald-400/60",
+    text: "text-emerald-600 dark:text-emerald-400",
+  },
+  mid: {
+    badge: "bg-zinc-400/90 text-white dark:bg-zinc-500/90 dark:text-zinc-200",
+    border: "border-zinc-400/60 dark:border-zinc-500/60",
+    text: "text-zinc-500 dark:text-zinc-400",
+  },
+  pass: {
+    badge: "bg-zinc-300/90 text-zinc-600 dark:bg-zinc-600/90 dark:text-zinc-300",
+    border: "border-zinc-300/60 dark:border-zinc-600/60",
+    text: "text-zinc-400 dark:text-zinc-500",
+  },
+};
+
+const defaultTierStyle = tierStyles.mid;
+
+function getTierStyle(tier: string | null | undefined) {
+  return tierStyles[tier || ""] || defaultTierStyle;
 }
 
-function scoreBorderColor(ratio: number): string {
-  if (ratio <= 0.2) return "border-red-400/60 dark:border-red-500/60";
-  if (ratio <= 0.4) return "border-orange-400/60 dark:border-orange-500/60";
-  if (ratio <= 0.6) return "border-yellow-400/60 dark:border-yellow-500/60";
-  if (ratio <= 0.8) return "border-emerald-400/60 dark:border-emerald-500/60";
-  return "border-green-500/60 dark:border-green-400/60";
-}
+// Vibe tag colors — rotate through a set of fun muted colors
+const vibeTagColors = [
+  "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300",
+  "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
+  "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
+  "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+  "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
+];
 
-function scoreTextColor(ratio: number): string {
-  if (ratio <= 0.2) return "text-red-600 dark:text-red-400";
-  if (ratio <= 0.4) return "text-orange-600 dark:text-orange-400";
-  if (ratio <= 0.6) return "text-yellow-600 dark:text-yellow-400";
-  if (ratio <= 0.8) return "text-emerald-600 dark:text-emerald-400";
-  return "text-green-600 dark:text-green-400";
-}
-
-// Pick score colors — calibrated for 50-100 range where most scores land 65-85
-function pickBorderColor(score: number): string {
-  if (score < 65) return "border-orange-400/60 dark:border-orange-500/60";
-  if (score < 72) return "border-yellow-400/60 dark:border-yellow-500/60";
-  if (score < 80) return "border-emerald-400/60 dark:border-emerald-500/60";
-  return "border-green-500/60 dark:border-green-400/60";
-}
-
-function pickTextColor(score: number): string {
-  if (score < 65) return "text-orange-600 dark:text-orange-400";
-  if (score < 72) return "text-yellow-600 dark:text-yellow-400";
-  if (score < 80) return "text-emerald-600 dark:text-emerald-400";
-  return "text-green-600 dark:text-green-400";
-}
-
-// Sub-score number color (1-10 scale)
-function subScoreColor(score: number): string {
-  if (score <= 3) return "text-orange-500 dark:text-orange-400";
-  if (score <= 5) return "text-yellow-600 dark:text-yellow-400";
-  if (score <= 7) return "text-emerald-600 dark:text-emerald-400";
-  return "text-green-600 dark:text-green-400";
+function vibeTagColor(tag: string): string {
+  // Deterministic color based on tag content
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = ((hash << 5) - hash + tag.charCodeAt(i)) | 0;
+  return vibeTagColors[Math.abs(hash) % vibeTagColors.length];
 }
 
 function slugify(title: string): string {
@@ -83,6 +89,14 @@ export function PostCard({
   const href = `/post/${post.id}/${slug}`;
   const displayTitle = post.title.replace(/^Show HN:\s*/i, "");
 
+  const tier = analysis?.tier as Tier | null;
+  const tierStyle = getTierStyle(tier);
+  const vibeTags: string[] = analysis?.vibeTags ? JSON.parse(analysis.vibeTags) : [];
+  // Use highlight (pickReason) as the primary text, fall back to summary
+  const highlight = analysis?.pickReason && analysis.pickReason !== "Nothing stands out"
+    ? analysis.pickReason
+    : analysis?.summary || null;
+
   return (
     <Link href={href} className="group block">
       <article className="rounded-lg border border-border bg-card overflow-hidden shadow-sm transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5 dark:shadow-none dark:hover:shadow-md dark:hover:shadow-primary/5 dark:hover:border-primary/20">
@@ -111,13 +125,11 @@ export function PostCard({
               </Badge>
             </div>
           )}
-          {analysis?.pickScore != null && (
+          {tier && tier !== "mid" && tier !== "pass" && (
             <div className="absolute top-2 right-2">
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full bg-background/85 backdrop-blur-sm border-2 shadow-sm ${pickBorderColor(analysis.pickScore)}`}>
-                <span className={`text-[10px] font-bold leading-none ${pickTextColor(analysis.pickScore)}`}>
-                  {analysis.pickScore}
-                </span>
-              </div>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase shadow-sm backdrop-blur-sm ${tierStyle.badge}`}>
+                {TIER_LABELS[tier]}
+              </span>
             </div>
           )}
         </div>
@@ -128,13 +140,10 @@ export function PostCard({
             {displayTitle}
           </h3>
 
-          {analysis?.pickReason && analysis.pickReason !== "Nothing stands out" && (analysis.pickScore ?? 0) >= 50 ? (
-            <p className="text-xs text-muted-foreground line-clamp-3 mb-2.5 leading-relaxed italic">
-              {analysis.pickReason}
-            </p>
-          ) : analysis?.summary ? (
+          {/* Highlight — the star of the show */}
+          {highlight ? (
             <p className="text-xs text-muted-foreground line-clamp-3 mb-2.5 leading-relaxed">
-              {analysis.summary}
+              {highlight}
             </p>
           ) : (
             <p className="text-xs text-muted-foreground line-clamp-3 mb-2.5 leading-relaxed">
@@ -144,23 +153,17 @@ export function PostCard({
             </p>
           )}
 
-          {(analysis?.noveltyScore || analysis?.ambitionScore || analysis?.usefulnessScore) && (
-            <div className="flex items-center gap-2 mb-2.5 text-[11px]">
-              {analysis.noveltyScore != null && analysis.noveltyScore > 0 && (
-                <span className="text-muted-foreground/70">Novelty <span className={`font-bold ${subScoreColor(analysis.noveltyScore)}`}>{analysis.noveltyScore}</span></span>
-              )}
-              {analysis.ambitionScore != null && analysis.ambitionScore > 0 && (
-                <>
-                  <span className="text-border">·</span>
-                  <span className="text-muted-foreground/70">Craft <span className={`font-bold ${subScoreColor(analysis.ambitionScore)}`}>{analysis.ambitionScore}</span></span>
-                </>
-              )}
-              {analysis.usefulnessScore != null && analysis.usefulnessScore > 0 && (
-                <>
-                  <span className="text-border">·</span>
-                  <span className="text-muted-foreground/70">Appeal <span className={`font-bold ${subScoreColor(analysis.usefulnessScore)}`}>{analysis.usefulnessScore}</span></span>
-                </>
-              )}
+          {/* Vibe tags */}
+          {vibeTags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2.5">
+              {vibeTags.map((tag) => (
+                <span
+                  key={tag}
+                  className={`inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium ${vibeTagColor(tag)}`}
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
           )}
 
