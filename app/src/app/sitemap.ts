@@ -15,11 +15,13 @@ function slugify(title: string): string {
 }
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  // Sitemap spec allows up to 50,000 URLs per file.
+  // At ~1000 posts/week we'll need to split around week 48.
+  // For now, fetch all posts (no limit).
   const allPosts = db
     .select({ id: posts.id, title: posts.title, updatedAt: posts.updatedAt })
     .from(posts)
     .orderBy(desc(posts.createdAt))
-    .limit(5000)
     .all();
 
   const postEntries: MetadataRoute.Sitemap = allPosts.map((post) => ({
