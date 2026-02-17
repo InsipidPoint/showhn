@@ -1,5 +1,6 @@
 import { Suspense } from "react";
-import { PostCard, PostCardSkeleton } from "@/components/post-card";
+import { PostCardSkeleton } from "@/components/post-card";
+import { PostGrid } from "@/components/post-grid";
 import { FilterBar } from "@/components/filter-bar";
 import { getPosts, getCategories } from "@/lib/db/queries";
 
@@ -46,11 +47,12 @@ export default async function Home({
           <p className="text-sm mt-1">Try expanding the time filter or removing category filters.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} analysis={post.analysis} />
-          ))}
-        </div>
+        <PostGrid
+          initialPosts={posts}
+          time={time}
+          sort={sort}
+          categories={categories}
+        />
       )}
     </>
   );
