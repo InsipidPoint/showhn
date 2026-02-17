@@ -90,7 +90,8 @@ function upsertPost(hit: AlgoliaHit) {
       .run();
 
     // Enqueue screenshot + analysis tasks for the worker to pick up
-    enqueuePostTasks(db, id, hasUrl);
+    // New posts get higher priority so they're processed before backfill
+    enqueuePostTasks(db, id, hasUrl, 10);
   }
 
   return !existing;
