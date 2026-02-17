@@ -29,20 +29,37 @@ export default function AboutPage() {
         <p className="text-muted-foreground leading-relaxed">
           HN Showcase started as a weekend project by{" "}
           <a
+            href="https://news.ycombinator.com/user?id=ssong"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            ssong
+          </a>{" "}
+          and{" "}
+          <a
+            href="https://news.ycombinator.com/user?id=nnythm"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            nnythm
+          </a>{" "}
+          in{" "}
+          <a
             href="https://news.ycombinator.com/item?id=2843352"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline"
           >
-            ssong and nnythm
-          </a>{" "}
-          in August 2011. The idea was simple: Show HN posts are some of the
+            August 2011
+          </a>. The idea was simple: Show HN posts are some of the
           best parts of Hacker News, but there was no good way to browse them
-          visually. So we built a thumbnail gallery using the HN Search API,
+          visually. We built a thumbnail gallery using the HN Search API,
           Pyramid, jQuery, and url2png.
         </p>
         <p className="text-muted-foreground leading-relaxed">
-          It resonated. The{" "}
+          The{" "}
           <a
             href="https://news.ycombinator.com/item?id=4055498"
             target="_blank"
@@ -51,7 +68,7 @@ export default function AboutPage() {
           >
             community picked it up
           </a>{" "}
-          (158 points), and we shipped a{" "}
+          (158 points). In 2012 I shipped a{" "}
           <a
             href="https://news.ycombinator.com/item?id=4532882"
             target="_blank"
@@ -78,8 +95,8 @@ export default function AboutPage() {
           to find the genuinely interesting stuff.
         </p>
         <p className="text-muted-foreground leading-relaxed">
-          We thought: what if we brought HN Showcase back, but built for this
-          era? Visual browsing, AI-powered analysis that surfaces the most
+          I thought: what if I brought HN Showcase back, but built for this
+          era? Visual browsing, AI as a judge to surface the most
           interesting projects, and a daily digest so you never miss the good
           ones.
         </p>
@@ -99,7 +116,7 @@ export default function AboutPage() {
           <FeatureCard
             icon="🤖"
             title="AI Pick Score"
-            description="Each project is scored on novelty, craft, and appeal. The daily digest highlights the top picks."
+            description="AI judges each project on novelty, craft, and appeal — surfacing the most interesting ones. The daily digest highlights top picks."
           />
           <FeatureCard
             icon="📰"
@@ -134,7 +151,10 @@ export default function AboutPage() {
           How AI Picks Work
         </h2>
         <p className="text-muted-foreground leading-relaxed">
-          Every Show HN post is analyzed across three dimensions:
+          Every Show HN post gets judged by AI across three dimensions
+          that were themselves largely defined by AI — I gave it the goal
+          of surfacing interesting projects and let it figure out what to
+          measure:
         </p>
         <ul className="space-y-2 text-muted-foreground">
           <li className="flex gap-3">
@@ -208,7 +228,7 @@ export default function AboutPage() {
           >
             ssong
           </a>
-          . Original 2011 co-creator:{" "}
+          . v1 co-created with{" "}
           <a
             href="https://news.ycombinator.com/user?id=nnythm"
             target="_blank"
