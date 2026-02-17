@@ -166,6 +166,30 @@ export default async function PostPage({ params }: Props) {
             </h2>
           </div>
           <div className="p-6 space-y-5">
+            {post.analysis.pickScore != null && (
+              <div className="flex items-center gap-3">
+                <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 ${
+                  post.analysis.pickScore >= 80 ? "border-green-500 dark:border-green-400" :
+                  post.analysis.pickScore >= 60 ? "border-emerald-400 dark:border-emerald-500" :
+                  post.analysis.pickScore >= 40 ? "border-yellow-400 dark:border-yellow-500" :
+                  post.analysis.pickScore >= 20 ? "border-orange-400 dark:border-orange-500" :
+                  "border-red-400 dark:border-red-500"
+                }`}>
+                  <span className={`text-lg font-bold ${
+                    post.analysis.pickScore >= 80 ? "text-green-600 dark:text-green-400" :
+                    post.analysis.pickScore >= 60 ? "text-emerald-600 dark:text-emerald-400" :
+                    post.analysis.pickScore >= 40 ? "text-yellow-600 dark:text-yellow-400" :
+                    post.analysis.pickScore >= 20 ? "text-orange-600 dark:text-orange-400" :
+                    "text-red-600 dark:text-red-400"
+                  }`}>{post.analysis.pickScore}</span>
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Pick Score</span>
+                  <p className="text-sm text-muted-foreground">Composite of novelty, ambition, and usefulness</p>
+                </div>
+              </div>
+            )}
+
             {post.analysis.summary && (
               <div>
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Summary</span>
