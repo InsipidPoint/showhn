@@ -12,6 +12,9 @@ import { fetchItem, fetchItemsBatched } from "./hn-api";
 import { createRateLimiter } from "./rate-limit";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyDB = BetterSQLite3Database<any>;
+
 const ONE_HOUR = 60 * 60;
 const ONE_DAY = 24 * ONE_HOUR;
 
@@ -38,7 +41,7 @@ const onDemandLimiter = createRateLimiter({
  *   7–30 days  → stale after 24h
  *   > 30 days  → skipped (on-demand only)
  */
-export function getStalePostIds(database: BetterSQLite3Database, limit = 100): number[] {
+export function getStalePostIds(database: AnyDB, limit = 100): number[] {
   const now = Math.floor(Date.now() / 1000);
 
   const result = database.all<{ id: number }>(sql`
@@ -62,7 +65,7 @@ export function getStalePostIds(database: BetterSQLite3Database, limit = 100): n
  * Called from ingest.ts after the Algolia discovery pass.
  */
 export async function refreshStalePosts(
-  database: BetterSQLite3Database,
+  database: AnyDB,
   limit = 100,
 ): Promise<{ refreshed: number }> {
   const staleIds = getStalePostIds(database, limit);
