@@ -111,11 +111,23 @@ async function takeScreenshot(
 
   try {
     const page = await context.newPage();
+
+    // Use 'load' to wait for all resources, then try to wait for network idle.
+    // networkidle waits until no network connections for 500ms — good for SPAs.
+    // Some sites keep long-polling connections open so networkidle never fires;
+    // we catch that with a timeout and fall back to a fixed settle delay.
     await page.goto(url, {
-      waitUntil: "domcontentloaded",
+      waitUntil: "load",
       timeout: SCREENSHOT_TIMEOUT,
     });
-    await page.waitForTimeout(2000);
+    try {
+      await page.waitForLoadState("networkidle", { timeout: 5000 });
+    } catch {
+      // networkidle timed out (site keeps connections open) — that's fine
+    }
+
+    // Extra settle time for CSS animations, lazy images, hydration
+    await page.waitForTimeout(1500);
 
     await page.screenshot({
       path: screenshotPath,
