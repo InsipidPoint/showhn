@@ -2,7 +2,17 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import Link from "next/link";
 import type { Post, AiAnalysis } from "@/lib/db/schema";
-import { TIER_LABELS, type Tier } from "@/lib/ai/llm";
+import { TIERS, TIER_LABELS, type Tier } from "@/lib/ai/llm";
+
+function safeParseTier(value: string | null | undefined): Tier | null {
+  if (!value) return null;
+  return (TIERS as readonly string[]).includes(value) ? (value as Tier) : null;
+}
+
+function safeParseJsonArray(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try { return JSON.parse(json); } catch { return []; }
+}
 
 // Tier styling — each tier gets a distinct color personality
 const tierStyles: Record<string, { badge: string; border: string; text: string }> = {
@@ -89,9 +99,9 @@ export function PostCard({
   const href = `/post/${post.id}/${slug}`;
   const displayTitle = post.title.replace(/^Show HN:\s*/i, "");
 
-  const tier = analysis?.tier as Tier | null;
+  const tier = safeParseTier(analysis?.tier);
   const tierStyle = getTierStyle(tier);
-  const vibeTags: string[] = analysis?.vibeTags ? JSON.parse(analysis.vibeTags) : [];
+  const vibeTags: string[] = safeParseJsonArray(analysis?.vibeTags);
   // Use highlight (pickReason) as the primary text, fall back to summary
   const highlight = analysis?.pickReason && analysis.pickReason !== "Nothing stands out"
     ? analysis.pickReason

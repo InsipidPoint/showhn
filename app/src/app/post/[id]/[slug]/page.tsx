@@ -3,7 +3,17 @@ import { triggerRefreshIfStale } from "@/lib/refresh";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TIER_LABELS, type Tier } from "@/lib/ai/llm";
+import { TIERS, TIER_LABELS, type Tier } from "@/lib/ai/llm";
+
+function safeParseTier(value: string | null | undefined): Tier | null {
+  if (!value) return null;
+  return (TIERS as readonly string[]).includes(value) ? (value as Tier) : null;
+}
+
+function safeParseJsonArray(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try { return JSON.parse(json); } catch { return []; }
+}
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -146,16 +156,10 @@ export default async function PostPage({ params }: Props) {
     month: "short",
     day: "numeric",
   });
-  const techStack: string[] = post.analysis?.techStack
-    ? JSON.parse(post.analysis.techStack)
-    : [];
-  const tags: string[] = post.analysis?.tags
-    ? JSON.parse(post.analysis.tags)
-    : [];
-  const vibeTags: string[] = post.analysis?.vibeTags
-    ? JSON.parse(post.analysis.vibeTags)
-    : [];
-  const tier = (post.analysis?.tier || null) as Tier | null;
+  const techStack: string[] = safeParseJsonArray(post.analysis?.techStack);
+  const tags: string[] = safeParseJsonArray(post.analysis?.tags);
+  const vibeTags: string[] = safeParseJsonArray(post.analysis?.vibeTags);
+  const tier = safeParseTier(post.analysis?.tier);
 
   return (
     <div className="max-w-4xl mx-auto">

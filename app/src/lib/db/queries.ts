@@ -189,11 +189,14 @@ export async function getDigest(date?: string): Promise<{
   // Top by points
   const topPosts = [...mapped].sort((a, b) => (b.points ?? 0) - (a.points ?? 0)).slice(0, 10);
 
-  // AI picks — gem and banger tier projects, then by points
+  // AI picks — gem and banger tier projects, falling back to high pickScore for legacy posts without tier
   const aiPicks = [...mapped]
     .filter((p) => {
       const tier = p.analysis?.tier;
-      return tier === "gem" || tier === "banger";
+      if (tier === "gem" || tier === "banger") return true;
+      // Backward compat: include legacy posts without tier that had high scores
+      if (!tier && (p.analysis?.pickScore ?? 0) >= 80) return true;
+      return false;
     })
     .sort((a, b) => (b.analysis?.pickScore || 0) - (a.analysis?.pickScore || 0) || (b.points ?? 0) - (a.points ?? 0))
     .slice(0, 6);

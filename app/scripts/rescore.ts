@@ -19,7 +19,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import OpenAI from "openai";
 import * as schema from "../src/lib/db/schema";
-import { analyzePost, tierToPickScore, TIERS, VIBE_TAGS, type Tier } from "../src/lib/ai/llm";
+import { analyzePost, tierToPickScore, parseTier, parseVibeTags, TIERS, type Tier } from "../src/lib/ai/llm";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
@@ -141,18 +141,6 @@ You have ${posts.length} projects — DIFFERENTIATE. Not everything is "solid". 
 Good enterprise/infra tools solving real pain = banger even if not "fun."
 
 Return ONLY valid JSON, no markdown.`;
-}
-
-function parseTier(value: unknown): Tier {
-  const s = String(value || "").toLowerCase().trim();
-  if (TIERS.includes(s as Tier)) return s as Tier;
-  return "mid";
-}
-
-function parseVibeTags(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  const validTags = new Set<string>(VIBE_TAGS as unknown as string[]);
-  return value.map(String).filter((t) => validTags.has(t)).slice(0, 3);
 }
 
 async function rescoreBatch(posts: PostRow[]): Promise<ScoreResult[]> {

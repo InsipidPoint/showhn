@@ -151,7 +151,7 @@ async function callOpenAI(prompt: string, model: string, screenshotBase64?: stri
   if (screenshotBase64) {
     content.push({
       type: "image_url",
-      image_url: { url: `data:image/webp;base64,${screenshotBase64}`, detail: "low" },
+      image_url: { url: `data:image/webp;base64,${screenshotBase64}`, detail: "auto" },
     });
   }
   content.push({ type: "text", text: prompt });
@@ -179,7 +179,7 @@ async function callAnthropic(prompt: string, model: string, screenshotBase64?: s
 
   const response = await client.messages.create({
     model,
-    max_tokens: 700,
+    max_tokens: 1000,
     messages: [{ role: "user", content }],
   });
   const block = response.content[0];
@@ -195,32 +195,13 @@ export function tierToPickScore(tier: Tier): number {
   return TIER_SCORES[tier] ?? 50;
 }
 
-/**
- * Legacy: compute pick_score from sub-scores.
- * Still exported for recompute-scores.ts backward compat.
- */
-export function computePickScore(novelty: number, usefulness: number, ambition: number): number {
-  const raw = novelty * 0.35 + usefulness * 0.35 + ambition * 0.30;
-  let score: number;
-  if (raw <= 3) {
-    score = 55 + (raw - 1) * 3.5;
-  } else if (raw <= 5) {
-    score = 62 + (raw - 3) * 6;
-  } else if (raw <= 7) {
-    score = 74 + (raw - 5) * 7;
-  } else {
-    score = 88 + (raw - 7) * 4;
-  }
-  return Math.round(Math.min(100, Math.max(55, score)));
-}
-
-function parseTier(value: unknown): Tier {
+export function parseTier(value: unknown): Tier {
   const s = String(value || "").toLowerCase().trim();
   if (TIERS.includes(s as Tier)) return s as Tier;
   return "mid";
 }
 
-function parseVibeTags(value: unknown): string[] {
+export function parseVibeTags(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   const validTags = new Set<string>(VIBE_TAGS as unknown as string[]);
   return value
