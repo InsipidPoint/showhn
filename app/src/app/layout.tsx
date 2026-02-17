@@ -62,14 +62,14 @@ export default function RootLayout({
             <main className="mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 py-6 flex-1">
               {children}
             </main>
-            <footer className="border-t border-border bg-background">
+            <footer className="border-t border-border bg-muted/30">
               <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between text-xs text-muted-foreground">
                 <span>HN Showcase — AI-powered gallery for Show HN</span>
                 <a
                   href="https://news.ycombinator.com/showhn.html"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-foreground transition-colors"
+                  className="hover:text-primary transition-colors"
                 >
                   Show HN on Hacker News
                 </a>

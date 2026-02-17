@@ -38,7 +38,7 @@ export function PostCard({
 
   return (
     <Link href={href} className="group block">
-      <article className="rounded-lg border border-border bg-card overflow-hidden shadow-sm transition-all duration-200 hover:shadow-md hover:border-border/80 dark:shadow-none dark:hover:border-border/60">
+      <article className="rounded-lg border border-border bg-card overflow-hidden shadow-sm transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5 dark:shadow-none dark:hover:shadow-md dark:hover:shadow-primary/5 dark:hover:border-primary/20">
         {/* Screenshot */}
         <div className="relative aspect-[16/10] bg-muted overflow-hidden">
           {post.hasScreenshot ? (
@@ -59,7 +59,7 @@ export function PostCard({
           )}
           {analysis?.category && (
             <div className="absolute top-2 left-2">
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-background/80 backdrop-blur-sm border-0 shadow-sm">
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-background/85 backdrop-blur-sm border border-border/50 shadow-sm">
                 {analysis.category}
               </Badge>
             </div>
@@ -85,9 +85,9 @@ export function PostCard({
           )}
 
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span className="font-medium">{post.author}</span>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-0.5">
+            <span className="font-medium truncate mr-2">{post.author}</span>
+            <div className="flex items-center gap-2.5 shrink-0">
+              <span className="inline-flex items-center gap-0.5 text-primary/70">
                 <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
                 {post.points}
               </span>
