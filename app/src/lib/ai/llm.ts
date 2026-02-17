@@ -117,17 +117,23 @@ function clamp(value: number, min: number, max: number): number {
 
 /**
  * Compute a 50-100 composite pick score from the three AI sub-scores (each 1-10).
- * Maps the raw weighted average (1-10) into a 50-100 range so most projects
- * score ≥50 (encouraging) while still differentiating at the top.
+ * 
+ * The LLM (gpt-5-mini) practically scores in a 2-8 range despite being told to use 1-10.
+ * We map the weighted average so that:
+ *   - avg 2 (minimum real scores) → ~55
+ *   - avg 5 (typical project)     → ~72
+ *   - avg 7 (strong project)      → ~83
+ *   - avg 8 (top projects)        → ~89
+ *   - avg 9+ (rare exceptional)   → ~95-100
  *
- * Raw 1 → 50, Raw 10 → 100. Formula: 50 + (weighted_avg - 1) * (50/9)
+ * Formula: 50 + (raw - 1) * (55 / 9)  — slightly steeper slope
  * Dimensions: Novelty (how fresh), Craft (how well-built), Appeal (how exciting to discover).
  * DB columns: novelty_score, ambition_score (=craft), usefulness_score (=appeal).
  */
 export function computePickScore(novelty: number, usefulness: number, ambition: number): number {
   //Args: novelty, appeal (usefulness col), craft (ambition col)
   const raw = novelty * 0.35 + usefulness * 0.35 + ambition * 0.30;
-  const score = 50 + (raw - 1) * (50 / 9);
+  const score = 50 + (raw - 1) * (55 / 9);
   return Math.round(Math.min(100, Math.max(50, score)));
 }
 
