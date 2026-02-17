@@ -14,8 +14,8 @@ export type AnalysisResult = {
   vibe_score: number;
   interest_score: number;
   novelty_score: number;
-  ambition_score: number;
-  usefulness_score: number;
+  ambition_score: number;   // mapped from craft_score
+  usefulness_score: number; // mapped from appeal_score
   pick_reason: string;
   tags: string[];
 };
@@ -57,25 +57,35 @@ Return ONLY a JSON object with these fields:
   "tech_stack": ["Array of detected technologies, frameworks, languages"],
   "target_audience": "Who would use this (e.g. 'Backend developers', 'Small business owners')",
   "vibe_score": 1-5 (1=weekend hack, 2=side project, 3=solid tool, 4=polished product, 5=serious startup),
-  "novelty_score": 1-10 (How new or unique is this idea?),
-  "ambition_score": 1-10 (Technical depth and scope?),
-  "usefulness_score": 1-10 (Practical impact for target audience?),
+  "novelty_score": 1-10 (How fresh or surprising is this?),
+  "craft_score": 1-10 (How impressive is the execution?),
+  "appeal_score": 1-10 (Would someone be excited to discover this?),
   "pick_reason": "One sentence explaining what makes this project noteworthy, or 'Nothing stands out' if generic",
   "tags": ["3-5 descriptive tags beyond the category"]
 }
 
-SCORING GUIDE — use the FULL 1-10 range, aim for a bell curve centered around 5:
-  1-2: Bottom tier. Toy/trivial (quiz app, basic wrapper, tutorial clone)
-  3-4: Below average. Minor utility, limited scope or originality
-  5-6: Average Show HN. Decent effort, some value, nothing remarkable
-  7-8: Strong. Genuinely impressive in this dimension — top ~15%
-  9-10: Exceptional. Reserved for the best ~2% — paradigm-shifting novelty, massive technical depth, or solves a major pain point
+SCORING GUIDE — use the FULL 1-10 range. Aim for a bell curve centered around 5.
 
-Novelty: Is this a fresh idea or yet another todo/CRM/dashboard? Clones and "X but in Y language" = 2-3.
-Ambition: A CLI wrapper = 2-3. Full-stack platform with complex algorithms = 7-8. Novel research = 9-10.
-Usefulness: Be strict here. Ask: "Would I actually switch to this from what I use now?" Most Show HN projects are cool demos that few will adopt daily = 3-5. Only score 7+ if it fills a gap where no good alternative exists AND the target audience is large.
+NOVELTY — "Have I seen this before?"
+  High (7-9): Chess engine in 2KB. Visualizing transformer internals in-browser. Real-time bot attack visualization. A genuinely new approach to an old problem.
+  Medium (4-6): Interesting twist on existing concept. Combines known ideas in a fresh way. Solid but not surprising.
+  Low (1-3): Another todo app. "X but in Rust/Go." Yet another AI wrapper, CRM, dashboard, or landing page builder. Clone of well-known product with no meaningful differentiator.
 
-Differentiate! If everything scores 5, you're not being helpful. Spread your scores.
+CRAFT — "How impressive is the execution?" (replaces ambition)
+  This rewards BOTH elegant small projects AND ambitious large ones. Quality of engineering, not just scope.
+  High (7-9): 2KB chess engine (extreme constraint mastery). Snowflake emulator in Rust (deep systems work). Polished UI with thoughtful UX. Real-time system with complex state management. Production-grade infra solving hard distributed systems problems.
+  Medium (4-6): Well-structured project, works as described, competent engineering. Standard web stack used effectively.
+  Low (1-3): Minimal wrapper around an API. Tutorial-level code. Broken or barely functional demo. README-only with no working product.
+
+APPEAL — "Would someone be excited to discover this?" (replaces usefulness)
+  This captures BOTH practical value AND delight/fun/coolness. Ask: "If I shared this link, would someone say 'oh cool' and actually click it?"
+  High (7-9): Moog synthesizer you can play in browser (instant fun). SQL traffic viewer (devs immediately want this). LLM search over Epstein files (compelling + topical). Self-hosted Firebase alternative (fills real gap). Interactive data visualization that reveals something surprising.
+  Medium (4-6): Useful for a niche audience. Decent developer tool with existing alternatives. Interesting but requires setup/commitment to appreciate.
+  Low (1-3): Generic SaaS with no demo. Dry enterprise tool with buzzword-heavy README and no clear "aha moment." Library with narrow use case and no visual/interactive element. "AI governance framework" that reads like a corporate pitch.
+
+IMPORTANT BALANCE: Don't penalize genuinely good enterprise/infrastructure projects — a well-executed database tool or security product that clearly solves a real pain point should score well on Appeal even if it's not "fun." The question is whether it makes someone go "oh, I need this" — that counts just as much as "oh, this is cool."
+
+Differentiate! If everything scores 5, you're not being helpful. Spread your scores across the full range.
 Be concise. Return ONLY valid JSON, no markdown fencing.`;
 }
 
@@ -111,10 +121,12 @@ function clamp(value: number, min: number, max: number): number {
  * score ≥50 (encouraging) while still differentiating at the top.
  *
  * Raw 1 → 50, Raw 10 → 100. Formula: 50 + (weighted_avg - 1) * (50/9)
- * Novelty weighted highest — AI picks should surface things the crowd might miss.
+ * Dimensions: Novelty (how fresh), Craft (how well-built), Appeal (how exciting to discover).
+ * DB columns: novelty_score, ambition_score (=craft), usefulness_score (=appeal).
  */
 export function computePickScore(novelty: number, usefulness: number, ambition: number): number {
-  const raw = novelty * 0.40 + usefulness * 0.30 + ambition * 0.30;
+  //Args: novelty, appeal (usefulness col), craft (ambition col)
+  const raw = novelty * 0.35 + usefulness * 0.35 + ambition * 0.30;
   const score = 50 + (raw - 1) * (50 / 9);
   return Math.round(Math.min(100, Math.max(50, score)));
 }
@@ -125,8 +137,9 @@ function parseResult(raw: string): AnalysisResult {
   const parsed = JSON.parse(cleaned);
 
   const novelty_score = clamp(Number(parsed.novelty_score) || 3, 1, 10);
-  const ambition_score = clamp(Number(parsed.ambition_score) || 3, 1, 10);
-  const usefulness_score = clamp(Number(parsed.usefulness_score) || 3, 1, 10);
+  // Accept both new (craft/appeal) and legacy (ambition/usefulness) field names
+  const ambition_score = clamp(Number(parsed.craft_score ?? parsed.ambition_score) || 3, 1, 10);
+  const usefulness_score = clamp(Number(parsed.appeal_score ?? parsed.usefulness_score) || 3, 1, 10);
 
   // Backward-compatible interest_score derived from average of sub-scores
   const avgScore = (novelty_score + ambition_score + usefulness_score) / 3;

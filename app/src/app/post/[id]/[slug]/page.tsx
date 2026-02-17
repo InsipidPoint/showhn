@@ -185,7 +185,7 @@ export default async function PostPage({ params }: Props) {
                 </div>
                 <div>
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Pick Score</span>
-                  <p className="text-sm text-muted-foreground">Composite of novelty, ambition, and usefulness</p>
+                  <p className="text-sm text-muted-foreground">Composite of novelty, craft, and appeal</p>
                 </div>
               </div>
             )}
@@ -234,7 +234,7 @@ export default async function PostPage({ params }: Props) {
 
               {post.analysis.ambitionScore && (
                 <div>
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Ambition</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Craft</span>
                   <div className="mt-1.5">
                     <ScoreBar score={post.analysis.ambitionScore} max={10} />
                   </div>
@@ -243,7 +243,7 @@ export default async function PostPage({ params }: Props) {
 
               {post.analysis.usefulnessScore && (
                 <div>
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Usefulness</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Appeal</span>
                   <div className="mt-1.5">
                     <ScoreBar score={post.analysis.usefulnessScore} max={10} />
                   </div>

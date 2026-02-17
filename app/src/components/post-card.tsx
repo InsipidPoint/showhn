@@ -146,10 +146,10 @@ export function PostCard({
                 <MiniScoreBar score={analysis.noveltyScore} max={10} label="Novelty" />
               )}
               {analysis.ambitionScore != null && analysis.ambitionScore > 0 && (
-                <MiniScoreBar score={analysis.ambitionScore} max={10} label="Ambition" />
+                <MiniScoreBar score={analysis.ambitionScore} max={10} label="Craft" />
               )}
               {analysis.usefulnessScore != null && analysis.usefulnessScore > 0 && (
-                <MiniScoreBar score={analysis.usefulnessScore} max={10} label="Useful" />
+                <MiniScoreBar score={analysis.usefulnessScore} max={10} label="Appeal" />
               )}
             </div>
           )}
