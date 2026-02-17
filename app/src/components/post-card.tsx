@@ -86,7 +86,7 @@ export function PostCard({
         <div className="relative aspect-[16/10] bg-muted overflow-hidden">
           {post.hasScreenshot ? (
             <Image
-              src={`/screenshots/${post.id}_thumb.webp`}
+              src={`/screenshots/${post.id}.webp`}
               alt={displayTitle}
               fill
               className="object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
