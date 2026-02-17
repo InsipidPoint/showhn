@@ -156,15 +156,15 @@ export function PostCard({
           )}
 
           {(analysis?.noveltyScore || analysis?.ambitionScore || analysis?.usefulnessScore) && (
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mb-2">
+            <div className="flex items-center gap-3 mb-2 text-[11px] text-muted-foreground">
               {analysis.noveltyScore != null && analysis.noveltyScore > 0 && (
-                <MiniScoreBar score={analysis.noveltyScore} max={10} label="Novelty" />
+                <span>Novelty <span className="font-semibold text-foreground">{analysis.noveltyScore}</span></span>
               )}
               {analysis.ambitionScore != null && analysis.ambitionScore > 0 && (
-                <MiniScoreBar score={analysis.ambitionScore} max={10} label="Craft" />
+                <span>Craft <span className="font-semibold text-foreground">{analysis.ambitionScore}</span></span>
               )}
               {analysis.usefulnessScore != null && analysis.usefulnessScore > 0 && (
-                <MiniScoreBar score={analysis.usefulnessScore} max={10} label="Appeal" />
+                <span>Appeal <span className="font-semibold text-foreground">{analysis.usefulnessScore}</span></span>
               )}
             </div>
           )}
