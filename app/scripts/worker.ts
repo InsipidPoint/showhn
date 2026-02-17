@@ -156,7 +156,7 @@ async function takeScreenshot(
 
     await page.screenshot({
       path: screenshotPath,
-      type: "png",
+      type: "webp",
       clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
     });
 
@@ -435,7 +435,7 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
       try {
         await page.screenshot({
           path: screenshotPath,
-          type: "png",
+          type: "webp",
           clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
         });
         screenshotSuccess = true;
