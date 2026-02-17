@@ -31,12 +31,12 @@ function MiniScoreBar({ score, max, label }: { score: number; max: number; label
   const ratio = score / max;
   return (
     <div className="flex items-center gap-1.5 min-w-0">
-      <span className="text-[9px] text-muted-foreground/70 w-[52px] shrink-0 truncate">{label}</span>
-      <div className="flex gap-[2px] shrink-0">
+      <span className="text-[9px] text-muted-foreground/70 w-[56px] shrink-0">{label}</span>
+      <div className="flex gap-[1.5px]">
         {Array.from({ length: max }, (_, i) => (
           <div
             key={i}
-            className={`w-[6px] h-[5px] rounded-[1px] ${
+            className={`w-[5px] h-[5px] rounded-[1px] ${
               i < score ? scoreColor(ratio) : "bg-muted-foreground/15"
             }`}
           />
