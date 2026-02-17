@@ -80,7 +80,7 @@ export function FilterBar({ categories, totalCount }: { categories: string[]; to
               key={tab.value}
               onClick={() => setTime(tab.value)}
               className={cn(
-                "px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition-all duration-150",
+                "px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition-all duration-150 cursor-pointer",
                 optimisticState.time === tab.value
                   ? "bg-primary text-primary-foreground font-medium shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-background/60"
@@ -98,7 +98,7 @@ export function FilterBar({ categories, totalCount }: { categories: string[]; to
               key={opt.value}
               onClick={() => setSort(opt.value)}
               className={cn(
-                "px-2.5 py-1 text-xs rounded-md whitespace-nowrap transition-all duration-150",
+                "px-2.5 py-1 text-xs rounded-md whitespace-nowrap transition-all duration-150 cursor-pointer",
                 optimisticState.sort === opt.value
                   ? "bg-background text-foreground font-medium shadow-sm dark:bg-secondary"
                   : "text-muted-foreground hover:text-foreground"
@@ -116,7 +116,7 @@ export function FilterBar({ categories, totalCount }: { categories: string[]; to
           {optimisticState.categories.length > 0 && (
             <button
               onClick={clearCategories}
-              className="text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 shrink-0 rounded-full hover:bg-muted transition-colors duration-150"
+              className="text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 shrink-0 rounded-full hover:bg-muted transition-colors duration-150 cursor-pointer"
             >
               Clear
             </button>

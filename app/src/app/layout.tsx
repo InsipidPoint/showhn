@@ -65,14 +65,30 @@ export default function RootLayout({
             <footer className="border-t border-border bg-muted/30">
               <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between text-xs text-muted-foreground">
                 <span>HN Showcase — AI-powered gallery for Show HN</span>
-                <a
-                  href="https://news.ycombinator.com/showhn.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-primary transition-colors"
-                >
-                  Show HN on Hacker News
-                </a>
+                <div className="flex items-center gap-4">
+                  <a
+                    href="/about"
+                    className="hover:text-primary transition-colors"
+                  >
+                    About
+                  </a>
+                  <a
+                    href="https://github.com/InsipidPoint/showhn"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-primary transition-colors"
+                  >
+                    GitHub
+                  </a>
+                  <a
+                    href="https://news.ycombinator.com/showhn.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-primary transition-colors"
+                  >
+                    Show HN
+                  </a>
+                </div>
               </div>
             </footer>
           </div>
