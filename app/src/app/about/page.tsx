@@ -168,23 +168,23 @@ export default function AboutPage() {
           <ul className="space-y-2 text-muted-foreground">
             <li className="flex gap-3">
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200">Gem</span>
-              <span>Exceptional — you&apos;d mass-share this link. (~5% of projects)</span>
+              <span>Exceptional — you&apos;d mass-share this link.</span>
             </li>
             <li className="flex gap-3">
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">Banger</span>
-              <span>Really compelling, clear &quot;oh that&apos;s cool&quot; moment. (~15%)</span>
+              <span>Really compelling, clear &quot;oh that&apos;s cool&quot; moment.</span>
             </li>
             <li className="flex gap-3">
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">Solid</span>
-              <span>Good work, interesting to its niche. (~40%)</span>
+              <span>Good work, interesting to its niche.</span>
             </li>
             <li className="flex gap-3">
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">Mid</span>
-              <span>Nothing special stands out. (~30%)</span>
+              <span>Nothing special stands out.</span>
             </li>
             <li className="flex gap-3">
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-50 text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400">Pass</span>
-              <span>Generic, broken, or no substance. (~10%)</span>
+              <span>Generic, broken, or no substance.</span>
             </li>
           </ul>
         </div>
