@@ -45,13 +45,13 @@ function pickTextColor(score: number): string {
 function MiniScoreBar({ score, max, label }: { score: number; max: number; label: string }) {
   const ratio = score / max;
   return (
-    <div className="flex items-center gap-1.5 min-w-0">
-      <span className="text-[9px] text-muted-foreground/70 shrink-0">{label}</span>
-      <div className="flex gap-[1.5px]">
+    <div className="flex items-center gap-1 min-w-0">
+      <span className="text-[8px] text-muted-foreground/70 w-[28px] shrink-0 truncate">{label}</span>
+      <div className="flex gap-[1px]">
         {Array.from({ length: max }, (_, i) => (
           <div
             key={i}
-            className={`w-[5px] h-[5px] rounded-[1px] ${
+            className={`w-[4px] h-[4px] rounded-[0.5px] ${
               i < score ? scoreColor(ratio) : "bg-muted-foreground/15"
             }`}
           />
@@ -156,15 +156,15 @@ export function PostCard({
           )}
 
           {(analysis?.noveltyScore || analysis?.ambitionScore || analysis?.usefulnessScore) && (
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mb-2">
               {analysis.noveltyScore != null && analysis.noveltyScore > 0 && (
-                <MiniScoreBar score={analysis.noveltyScore} max={10} label="Novelty" />
+                <MiniScoreBar score={analysis.noveltyScore} max={10} label="New" />
               )}
               {analysis.ambitionScore != null && analysis.ambitionScore > 0 && (
                 <MiniScoreBar score={analysis.ambitionScore} max={10} label="Craft" />
               )}
               {analysis.usefulnessScore != null && analysis.usefulnessScore > 0 && (
-                <MiniScoreBar score={analysis.usefulnessScore} max={10} label="Appeal" />
+                <MiniScoreBar score={analysis.usefulnessScore} max={10} label="Wow" />
               )}
             </div>
           )}
