@@ -31,7 +31,7 @@ function MiniScoreBar({ score, max, label }: { score: number; max: number; label
   const ratio = score / max;
   return (
     <div className="flex items-center gap-1.5 min-w-0">
-      <span className="text-[9px] text-muted-foreground/70 w-[56px] shrink-0">{label}</span>
+      <span className="text-[9px] text-muted-foreground/70 w-[10px] shrink-0">{label}</span>
       <div className="flex gap-[1.5px]">
         {Array.from({ length: max }, (_, i) => (
           <div
@@ -141,15 +141,15 @@ export function PostCard({
           )}
 
           {(analysis?.noveltyScore || analysis?.ambitionScore || analysis?.usefulnessScore) && (
-            <div className="flex flex-col gap-0.5 mb-2">
+            <div className="flex items-center gap-3 mb-2">
               {analysis.noveltyScore != null && analysis.noveltyScore > 0 && (
-                <MiniScoreBar score={analysis.noveltyScore} max={10} label="Novelty" />
+                <MiniScoreBar score={analysis.noveltyScore} max={10} label="N" />
               )}
               {analysis.ambitionScore != null && analysis.ambitionScore > 0 && (
-                <MiniScoreBar score={analysis.ambitionScore} max={10} label="Ambition" />
+                <MiniScoreBar score={analysis.ambitionScore} max={10} label="A" />
               )}
               {analysis.usefulnessScore != null && analysis.usefulnessScore > 0 && (
-                <MiniScoreBar score={analysis.usefulnessScore} max={10} label="Usefulness" />
+                <MiniScoreBar score={analysis.usefulnessScore} max={10} label="U" />
               )}
             </div>
           )}
