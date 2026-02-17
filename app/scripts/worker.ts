@@ -72,9 +72,11 @@ const STALE_TIMEOUT = parseInt(
 const STATS_INTERVAL = 60_000; // Log stats every 60s
 
 // Per-type rate limits (ms between tasks of the same type)
+// Screenshots run on this VPS (Chromium) — delay is just memory breathing room.
+// Analysis calls OpenAI — gpt-4o-mini allows 500+ RPM on Tier 1, 500ms is ~120 RPM.
 const RATE_LIMITS: Record<string, number> = {
-  analyze: parseInt(process.env.WORKER_ANALYZE_DELAY || "1000", 10),   // ~1 req/sec to LLM API
-  screenshot: parseInt(process.env.WORKER_SCREENSHOT_DELAY || "3000", 10), // 3s between screenshots
+  analyze: parseInt(process.env.WORKER_ANALYZE_DELAY || "500", 10),
+  screenshot: parseInt(process.env.WORKER_SCREENSHOT_DELAY || "500", 10),
 };
 const lastProcessed: Record<string, number> = {};
 
