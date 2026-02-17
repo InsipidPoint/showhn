@@ -9,7 +9,7 @@ import * as schema from "./db/schema";
 
 type DB = BetterSQLite3Database<typeof schema>;
 
-export type TaskType = "screenshot" | "analyze";
+export type TaskType = "screenshot" | "analyze" | "process";
 
 /**
  * Enqueue a new task for a post.
@@ -53,7 +53,8 @@ export function enqueueTask(
 }
 
 /**
- * Enqueue both screenshot and analyze tasks for a post.
+ * Enqueue a combined process task (screenshot + analysis) for a post,
+ * or just analyze for text-only posts.
  */
 export function enqueuePostTasks(
   db: DB,
@@ -63,9 +64,10 @@ export function enqueuePostTasks(
   force = false
 ): void {
   if (hasUrl) {
-    enqueueTask(db, "screenshot", postId, priority, force);
+    enqueueTask(db, "process", postId, priority, force);
+  } else {
+    enqueueTask(db, "analyze", postId, priority, force);
   }
-  enqueueTask(db, "analyze", postId, priority, force);
 }
 
 /**

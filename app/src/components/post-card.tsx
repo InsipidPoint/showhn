@@ -72,7 +72,11 @@ export function PostCard({
             {displayTitle}
           </h3>
 
-          {analysis?.summary ? (
+          {analysis?.pickReason && analysis.pickReason !== "Nothing stands out" && (analysis.pickScore ?? 0) >= 50 ? (
+            <p className="text-xs text-muted-foreground line-clamp-2 mb-2.5 leading-relaxed italic">
+              {analysis.pickReason}
+            </p>
+          ) : analysis?.summary ? (
             <p className="text-xs text-muted-foreground line-clamp-2 mb-2.5 leading-relaxed">
               {analysis.summary}
             </p>

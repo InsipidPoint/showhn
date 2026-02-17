@@ -65,7 +65,7 @@ export async function getPosts({
       query = query.orderBy(desc(posts.comments)) as typeof query;
       break;
     case "interesting":
-      query = query.orderBy(desc(aiAnalysis.interestScore), desc(posts.createdAt)) as typeof query;
+      query = query.orderBy(desc(aiAnalysis.pickScore), desc(posts.createdAt)) as typeof query;
       break;
   }
 
@@ -111,6 +111,9 @@ export async function searchPosts(
               a.tech_stack as a_tech_stack, a.target_audience as a_target_audience,
               a.vibe_score as a_vibe_score, a.interest_score as a_interest_score,
               a.comment_sentiment as a_comment_sentiment, a.tags as a_tags,
+              a.novelty_score as a_novelty_score, a.ambition_score as a_ambition_score,
+              a.usefulness_score as a_usefulness_score, a.pick_reason as a_pick_reason,
+              a.pick_score as a_pick_score,
               a.analyzed_at as a_analyzed_at, a.model as a_model
        FROM posts_fts fts
        JOIN posts p ON p.id = fts.rowid
@@ -145,6 +148,11 @@ export async function searchPosts(
           interestScore: r.a_interest_score,
           commentSentiment: r.a_comment_sentiment,
           tags: r.a_tags,
+          noveltyScore: r.a_novelty_score,
+          ambitionScore: r.a_ambition_score,
+          usefulnessScore: r.a_usefulness_score,
+          pickReason: r.a_pick_reason,
+          pickScore: r.a_pick_score,
           analyzedAt: r.a_analyzed_at,
           model: r.a_model,
         }
@@ -178,10 +186,10 @@ export async function getDigest(date?: string): Promise<{
   // Top by points
   const topPosts = [...mapped].sort((a, b) => (b.points ?? 0) - (a.points ?? 0)).slice(0, 10);
 
-  // AI picks (highest interest score)
+  // AI picks (highest pick score)
   const aiPicks = [...mapped]
-    .filter((p) => p.analysis?.interestScore)
-    .sort((a, b) => (b.analysis?.interestScore || 0) - (a.analysis?.interestScore || 0))
+    .filter((p) => p.analysis?.pickScore)
+    .sort((a, b) => (b.analysis?.pickScore || 0) - (a.analysis?.pickScore || 0))
     .slice(0, 6);
 
   // Category breakdown

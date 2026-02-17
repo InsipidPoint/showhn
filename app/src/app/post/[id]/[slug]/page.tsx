@@ -29,29 +29,31 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-function ScoreBar({ score, label }: { score: number; label: string }) {
-  const colors = [
-    "",
-    "bg-red-400 dark:bg-red-500",
-    "bg-orange-400 dark:bg-orange-500",
-    "bg-yellow-400 dark:bg-yellow-500",
-    "bg-emerald-400 dark:bg-emerald-500",
-    "bg-green-500 dark:bg-green-400",
-  ];
+function ScoreBar({ score, max, label }: { score: number; max: number; label?: string }) {
+  // Color based on relative position in range
+  const ratio = score / max;
+  const color =
+    ratio <= 0.2 ? "bg-red-400 dark:bg-red-500" :
+    ratio <= 0.4 ? "bg-orange-400 dark:bg-orange-500" :
+    ratio <= 0.6 ? "bg-yellow-400 dark:bg-yellow-500" :
+    ratio <= 0.8 ? "bg-emerald-400 dark:bg-emerald-500" :
+    "bg-green-500 dark:bg-green-400";
+
+  const segments = max <= 5 ? max : 10;
   return (
     <div className="flex items-center gap-2">
       <div className="flex gap-0.5">
-        {[1, 2, 3, 4, 5].map((i) => (
+        {Array.from({ length: segments }, (_, i) => i + 1).map((i) => (
           <div
             key={i}
-            className={`w-5 h-2 rounded-sm transition-colors ${
-              i <= score ? colors[score] : "bg-muted"
+            className={`w-3 h-2 rounded-sm transition-colors ${
+              i <= score ? color : "bg-muted"
             }`}
           />
         ))}
       </div>
       <span className="text-sm text-muted-foreground">
-        {score}/5{label && ` — ${label}`}
+        {score}/{max}{label ? ` — ${label}` : ""}
       </span>
     </div>
   );
@@ -190,16 +192,34 @@ export default async function PostPage({ params }: Props) {
                 <div>
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Vibe</span>
                   <div className="mt-1.5">
-                    <ScoreBar score={post.analysis.vibeScore} label={vibeLabels[post.analysis.vibeScore] || ""} />
+                    <ScoreBar score={post.analysis.vibeScore} max={5} label={vibeLabels[post.analysis.vibeScore] || ""} />
                   </div>
                 </div>
               )}
 
-              {post.analysis.interestScore && (
+              {post.analysis.noveltyScore && (
                 <div>
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Interest</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Novelty</span>
                   <div className="mt-1.5">
-                    <ScoreBar score={post.analysis.interestScore} label="" />
+                    <ScoreBar score={post.analysis.noveltyScore} max={10} />
+                  </div>
+                </div>
+              )}
+
+              {post.analysis.ambitionScore && (
+                <div>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Ambition</span>
+                  <div className="mt-1.5">
+                    <ScoreBar score={post.analysis.ambitionScore} max={10} />
+                  </div>
+                </div>
+              )}
+
+              {post.analysis.usefulnessScore && (
+                <div>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Usefulness</span>
+                  <div className="mt-1.5">
+                    <ScoreBar score={post.analysis.usefulnessScore} max={10} />
                   </div>
                 </div>
               )}
@@ -233,6 +253,13 @@ export default async function PostPage({ params }: Props) {
                     <Badge key={tag} variant="outline">{tag}</Badge>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {post.analysis.pickReason && post.analysis.pickReason !== "Nothing stands out" && (
+              <div className="border-t border-border pt-4">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Why It Stands Out</span>
+                <p className="mt-1 text-sm leading-relaxed italic">{post.analysis.pickReason}</p>
               </div>
             )}
           </div>

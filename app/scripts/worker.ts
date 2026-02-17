@@ -12,7 +12,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq, and, isNotNull } from "drizzle-orm";
 import { chromium, type Browser } from "playwright";
 import * as schema from "../src/lib/db/schema";
-import { analyzePost } from "../src/lib/ai/llm";
+import { analyzePost, computePickScore } from "../src/lib/ai/llm";
 import {
   dequeueTask,
   completeTask,
@@ -54,6 +54,26 @@ sqlite.exec(`
   CREATE INDEX IF NOT EXISTS idx_queue_post_id ON task_queue(post_id);
 `);
 
+// Migration: add new AI analysis columns
+try {
+  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN novelty_score INTEGER`);
+} catch { /* column already exists */ }
+try {
+  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN ambition_score INTEGER`);
+} catch { /* column already exists */ }
+try {
+  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN usefulness_score INTEGER`);
+} catch { /* column already exists */ }
+try {
+  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN pick_reason TEXT`);
+} catch { /* column already exists */ }
+try {
+  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN pick_score INTEGER`);
+} catch { /* column already exists */ }
+try {
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_analysis_pick_score ON ai_analysis(pick_score)`);
+} catch { /* index already exists */ }
+
 // Screenshot config
 const SCREENSHOT_DIR = path.join(process.cwd(), "public", "screenshots");
 const SCREENSHOT_TIMEOUT = parseInt(
@@ -77,6 +97,7 @@ const STATS_INTERVAL = 60_000; // Log stats every 60s
 const RATE_LIMITS: Record<string, number> = {
   analyze: parseInt(process.env.WORKER_ANALYZE_DELAY || "500", 10),
   screenshot: parseInt(process.env.WORKER_SCREENSHOT_DELAY || "500", 10),
+  process: parseInt(process.env.WORKER_PROCESS_DELAY || "500", 10),
 };
 const lastProcessed: Record<string, number> = {};
 
@@ -258,13 +279,28 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
       pageContent = post.title;
     }
 
+    // Fetch GitHub README if applicable
+    let readmeContent: string | undefined;
+    if (post.url) {
+      const ghRepo = parseGitHubRepo(post.url);
+      if (ghRepo) {
+        readmeContent = await fetchGitHubReadme(ghRepo.owner, ghRepo.repo) || undefined;
+      }
+    }
+
     const { result, model } = await analyzePost(
       post.title,
       post.url,
       pageContent,
-      post.storyText
+      post.storyText,
+      readmeContent
     );
 
+    const pickScore = computePickScore(
+      result.novelty_score,
+      result.usefulness_score,
+      result.ambition_score
+    );
     const now = Math.floor(Date.now() / 1000);
 
     db.insert(schema.aiAnalysis)
@@ -278,6 +314,11 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
         interestScore: result.interest_score,
         commentSentiment: null,
         tags: JSON.stringify(result.tags),
+        noveltyScore: result.novelty_score,
+        ambitionScore: result.ambition_score,
+        usefulnessScore: result.usefulness_score,
+        pickReason: result.pick_reason,
+        pickScore,
         analyzedAt: now,
         model,
       })
@@ -291,6 +332,11 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
           vibeScore: result.vibe_score,
           interestScore: result.interest_score,
           tags: JSON.stringify(result.tags),
+          noveltyScore: result.novelty_score,
+          ambitionScore: result.ambition_score,
+          usefulnessScore: result.usefulness_score,
+          pickReason: result.pick_reason,
+          pickScore,
           analyzedAt: now,
           model,
         },
@@ -305,10 +351,212 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
   }
 }
 
+// ─── GitHub README Fetching ──────────────────────────────────────────────────
+
+function parseGitHubRepo(url: string): { owner: string; repo: string } | null {
+  const match = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/?$/);
+  if (!match) return null;
+  return { owner: match[1], repo: match[2] };
+}
+
+async function fetchGitHubReadme(owner: string, repo: string): Promise<string> {
+  for (const branch of ["main", "master"]) {
+    try {
+      const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/README.md`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const text = await res.text();
+        return text.slice(0, 5000);
+      }
+    } catch {
+      // try next branch
+    }
+  }
+  return "";
+}
+
+// ─── Combined Process (Screenshot + Analysis) ───────────────────────────────
+
+async function processPost(task: schema.TaskQueue): Promise<void> {
+  const post = db
+    .select({
+      id: schema.posts.id,
+      title: schema.posts.title,
+      url: schema.posts.url,
+      storyText: schema.posts.storyText,
+      status: schema.posts.status,
+    })
+    .from(schema.posts)
+    .where(eq(schema.posts.id, task.postId))
+    .get();
+
+  if (!post || !post.url || post.status !== "active") {
+    completeTask(db, task.id);
+    console.log(`  [process] Skipped post ${task.postId} (no url or inactive)`);
+    return;
+  }
+
+  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+
+  // Step 1: Open browser, take screenshot, extract rendered text
+  let pageText = "";
+  let screenshotSuccess = false;
+
+  const b = await ensureBrowser();
+  const context = await b.newContext({
+    viewport: VIEWPORT,
+    userAgent:
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  });
+
+  try {
+    const page = await context.newPage();
+    await page.goto(post.url, { waitUntil: "load", timeout: SCREENSHOT_TIMEOUT });
+    try {
+      await page.waitForLoadState("networkidle", { timeout: 5000 });
+    } catch {
+      // networkidle timed out — that's fine
+    }
+    await page.waitForTimeout(1500);
+
+    // Take screenshots
+    const screenshotPath = path.join(SCREENSHOT_DIR, `${post.id}.webp`);
+    const thumbPath = path.join(SCREENSHOT_DIR, `${post.id}_thumb.webp`);
+
+    try {
+      await page.screenshot({
+        path: screenshotPath,
+        type: "png",
+        clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
+      });
+      await page.setViewportSize({ width: THUMB_WIDTH, height: 400 });
+      await page.screenshot({
+        path: thumbPath,
+        type: "png",
+        clip: { x: 0, y: 0, width: THUMB_WIDTH, height: 400 },
+      });
+      screenshotSuccess = true;
+    } catch (err) {
+      console.error(`  [process] Screenshot failed for post ${post.id}:`, (err as Error).message);
+    }
+
+    // Extract rendered page text
+    try {
+      pageText = await page.innerText("body");
+      pageText = pageText.replace(/\s+/g, " ").trim().slice(0, 5000);
+    } catch {
+      pageText = "";
+    }
+  } catch (err) {
+    console.error(`  [process] Page load failed for post ${post.id} (${post.url}):`, (err as Error).message);
+  } finally {
+    await context.close();
+  }
+
+  // Update screenshot status
+  if (screenshotSuccess) {
+    db.update(schema.posts)
+      .set({ hasScreenshot: 1 })
+      .where(eq(schema.posts.id, post.id))
+      .run();
+  }
+
+  // Step 2: Fetch GitHub README if applicable
+  let readmeContent = "";
+  const ghRepo = parseGitHubRepo(post.url);
+  if (ghRepo) {
+    readmeContent = await fetchGitHubReadme(ghRepo.owner, ghRepo.repo);
+    if (readmeContent) {
+      console.log(`  [process] Fetched README for ${ghRepo.owner}/${ghRepo.repo}`);
+    }
+  }
+
+  // Step 3: Run AI analysis
+  try {
+    if (!pageText && !post.storyText && !readmeContent) {
+      pageText = post.title; // fallback
+    }
+
+    const { result, model } = await analyzePost(
+      post.title,
+      post.url,
+      pageText,
+      post.storyText,
+      readmeContent || undefined
+    );
+
+    const pickScore = computePickScore(
+      result.novelty_score,
+      result.usefulness_score,
+      result.ambition_score
+    );
+    const now = Math.floor(Date.now() / 1000);
+
+    db.insert(schema.aiAnalysis)
+      .values({
+        postId: post.id,
+        summary: result.summary,
+        category: result.category,
+        techStack: JSON.stringify(result.tech_stack),
+        targetAudience: result.target_audience,
+        vibeScore: result.vibe_score,
+        interestScore: result.interest_score,
+        commentSentiment: null,
+        tags: JSON.stringify(result.tags),
+        noveltyScore: result.novelty_score,
+        ambitionScore: result.ambition_score,
+        usefulnessScore: result.usefulness_score,
+        pickReason: result.pick_reason,
+        pickScore,
+        analyzedAt: now,
+        model,
+      })
+      .onConflictDoUpdate({
+        target: schema.aiAnalysis.postId,
+        set: {
+          summary: result.summary,
+          category: result.category,
+          techStack: JSON.stringify(result.tech_stack),
+          targetAudience: result.target_audience,
+          vibeScore: result.vibe_score,
+          interestScore: result.interest_score,
+          tags: JSON.stringify(result.tags),
+          noveltyScore: result.novelty_score,
+          ambitionScore: result.ambition_score,
+          usefulnessScore: result.usefulness_score,
+          pickReason: result.pick_reason,
+          pickScore,
+          analyzedAt: now,
+          model,
+        },
+      })
+      .run();
+
+    completeTask(db, task.id);
+    console.log(`  [process] ✓ Post ${post.id}: ${post.title.slice(0, 50)} (pickScore=${pickScore})`);
+  } catch (err) {
+    // If screenshot succeeded but analysis failed, still mark screenshot
+    if (!screenshotSuccess && (task.attempts ?? 0) >= (task.maxAttempts ?? 3)) {
+      db.update(schema.posts)
+        .set({ status: "dead" })
+        .where(eq(schema.posts.id, post.id))
+        .run();
+    }
+    failTask(db, task.id, (err as Error).message);
+    console.error(`  [process] ✗ Post ${post.id}: ${(err as Error).message}`);
+  }
+}
+
 // ─── Main Worker Loop ────────────────────────────────────────────────────────
 
 async function processTask(task: schema.TaskQueue): Promise<void> {
   switch (task.type) {
+    case "process":
+      await processPost(task);
+      break;
     case "screenshot":
       await processScreenshot(task);
       break;

@@ -33,9 +33,14 @@ export const aiAnalysis = sqliteTable(
     techStack: text("tech_stack"), // JSON array
     targetAudience: text("target_audience"),
     vibeScore: integer("vibe_score"), // 1-5
-    interestScore: integer("interest_score"), // 1-5
+    interestScore: integer("interest_score"), // 1-5 (backward compat, derived from sub-scores)
     commentSentiment: text("comment_sentiment"),
     tags: text("tags"), // JSON array
+    noveltyScore: integer("novelty_score"), // 1-10: How new/unique is this idea?
+    ambitionScore: integer("ambition_score"), // 1-10: Technical depth and scope
+    usefulnessScore: integer("usefulness_score"), // 1-10: Impact for target audience
+    pickReason: text("pick_reason"), // One sentence: why this stands out
+    pickScore: integer("pick_score"), // 0-100 composite from AI sub-scores
     analyzedAt: integer("analyzed_at").notNull(),
     model: text("model").notNull(),
   },
@@ -43,6 +48,7 @@ export const aiAnalysis = sqliteTable(
     index("idx_analysis_category").on(table.category),
     index("idx_analysis_vibe").on(table.vibeScore),
     index("idx_analysis_interest").on(table.interestScore),
+    index("idx_analysis_pick_score").on(table.pickScore),
   ]
 );
 
