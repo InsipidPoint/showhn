@@ -46,7 +46,33 @@ export const aiAnalysis = sqliteTable(
   ]
 );
 
+export const taskQueue = sqliteTable(
+  "task_queue",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    type: text("type").notNull(), // screenshot, analyze
+    postId: integer("post_id")
+      .notNull()
+      .references(() => posts.id),
+    status: text("status").default("pending").notNull(), // pending, processing, completed, failed
+    priority: integer("priority").default(0), // higher = more urgent
+    attempts: integer("attempts").default(0),
+    maxAttempts: integer("max_attempts").default(3),
+    createdAt: integer("created_at").notNull(),
+    startedAt: integer("started_at"),
+    completedAt: integer("completed_at"),
+    error: text("error"),
+  },
+  (table) => [
+    index("idx_queue_status_priority").on(table.status, table.priority),
+    index("idx_queue_type").on(table.type),
+    index("idx_queue_post_id").on(table.postId),
+  ]
+);
+
 export type Post = typeof posts.$inferSelect;
 export type NewPost = typeof posts.$inferInsert;
 export type AiAnalysis = typeof aiAnalysis.$inferSelect;
 export type NewAiAnalysis = typeof aiAnalysis.$inferInsert;
+export type TaskQueue = typeof taskQueue.$inferSelect;
+export type NewTaskQueue = typeof taskQueue.$inferInsert;
