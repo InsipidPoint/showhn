@@ -10,6 +10,13 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Daily Digest — HN Showcase",
   description: "Today's best Show HN projects, curated by AI.",
+  alternates: { canonical: "https://hnshowcase.com/digest" },
+  openGraph: {
+    title: "Daily Digest — HN Showcase",
+    description: "Today's best Show HN projects, curated by AI.",
+    url: "https://hnshowcase.com/digest",
+    images: [{ url: "https://hnshowcase.com/og-image.png", width: 1200, height: 630 }],
+  },
 };
 
 export default async function DigestPage({

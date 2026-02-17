@@ -4,6 +4,14 @@ export const metadata: Metadata = {
   title: "About",
   description:
     "The story behind HN Showcase — from a 2011 weekend hack to an AI-powered visual gallery for Show HN.",
+  alternates: { canonical: "https://hnshowcase.com/about" },
+  openGraph: {
+    title: "About — HN Showcase",
+    description:
+      "The story behind HN Showcase — from a 2011 weekend hack to an AI-powered visual gallery for Show HN.",
+    url: "https://hnshowcase.com/about",
+    images: [{ url: "https://hnshowcase.com/og-image.png", width: 1200, height: 630 }],
+  },
 };
 
 export default function AboutPage() {

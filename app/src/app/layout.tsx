@@ -28,11 +28,13 @@ export const metadata: Metadata = {
     title: "HN Showcase — Visual Gallery for Show HN",
     description:
       "The AI-powered visual front page for Show HN. Browse, filter, and discover the best projects launched on Hacker News.",
+    images: [{ url: "https://hnshowcase.com/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "HN Showcase",
     description: "AI-powered visual gallery for Show HN projects.",
+    images: ["https://hnshowcase.com/og-image.png"],
   },
   alternates: {
     canonical: "https://hnshowcase.com",
@@ -56,6 +58,27 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "HN Showcase",
+              url: "https://hnshowcase.com",
+              description:
+                "The AI-powered visual front page for Show HN. Browse, filter, and discover the best projects launched on Hacker News.",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate: "https://hnshowcase.com/search?q={search_term_string}",
+                },
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
         <ThemeProvider>
           <div className="min-h-screen flex flex-col">
             <Header />

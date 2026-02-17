@@ -14,18 +14,43 @@ type Props = {
   params: Promise<{ id: string; slug: string }>;
 };
 
+function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/^show hn:\s*/i, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const post = await getPost(parseInt(id, 10));
   if (!post) return { title: "Not Found" };
 
   const title = post.title.replace(/^Show HN:\s*/i, "");
+  const description = post.analysis?.summary || `Show HN: ${title}`;
+  const slug = slugify(post.title);
+  const canonical = `https://hnshowcase.com/post/${post.id}/${slug}`;
+  const ogImage = post.hasScreenshot
+    ? `https://hnshowcase.com/screenshots/${post.id}.webp`
+    : "https://hnshowcase.com/og-image.png";
+
   return {
     title: `${title} — HN Showcase`,
-    description: post.analysis?.summary || `Show HN: ${title}`,
+    description,
+    alternates: { canonical },
     openGraph: {
       title: `${title} — HN Showcase`,
-      description: post.analysis?.summary || `Show HN: ${title}`,
+      description,
+      url: canonical,
+      images: [{ url: ogImage }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} — HN Showcase`,
+      description,
+      images: [ogImage],
     },
   };
 }

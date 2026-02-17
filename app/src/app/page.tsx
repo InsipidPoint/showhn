@@ -36,6 +36,7 @@ export default async function Home({
 
   return (
     <>
+      <h1 className="sr-only">HN Showcase — AI-Powered Visual Gallery for Show HN Projects</h1>
       <Suspense fallback={null}>
         <FilterBar categories={allCategories} totalCount={total} />
       </Suspense>

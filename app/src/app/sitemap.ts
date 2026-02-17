@@ -19,7 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     .select({ id: posts.id, title: posts.title, updatedAt: posts.updatedAt })
     .from(posts)
     .orderBy(desc(posts.createdAt))
-    .limit(1000)
+    .limit(5000)
     .all();
 
   const postEntries: MetadataRoute.Sitemap = allPosts.map((post) => ({
@@ -41,6 +41,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
+    },
+    {
+      url: "https://hnshowcase.com/about",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6,
     },
     {
       url: "https://hnshowcase.com/search",
