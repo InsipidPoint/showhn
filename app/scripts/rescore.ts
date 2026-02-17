@@ -122,12 +122,14 @@ Return a JSON object with a "scores" array, one entry per project IN ORDER:
   ]
 }
 
-TIER GUIDE — classify each project:
-  gem    (~5%): Exceptional. Mass-share worthy. Novel idea OR masterful execution OR instant viral appeal.
-  banger (~15%): Really compelling. Clear "oh that's cool" moment. Strong execution or fills a real gap.
-  solid  (~40%): Good work. Does what it says. Interesting to its niche.
-  mid    (~30%): Nothing special. Works but doesn't excite. Derivative or unremarkable.
-  pass   (~10%): Generic/broken/no substance. AI wrapper clone, empty landing page, tutorial-level.
+TIER GUIDE — classify each project purely on its merits:
+  gem:    Exceptional. Mass-share worthy. Novel idea OR masterful execution OR instant viral appeal. Most projects are NOT this.
+  banger: Really compelling. Clear "oh that's cool" moment. Strong execution or fills a real gap.
+  solid:  Good work. Does what it says. Interesting to its niche but nothing that makes you stop scrolling.
+  mid:    Mediocre. Works but doesn't excite. Derivative, unremarkable, or solves a problem nobody has.
+  pass:   Bad. Generic/broken/no substance. AI wrapper clone, empty landing page, tutorial-level.
+
+Be honest and critical. Most Show HN projects are average — don't grade on a curve.
 
 VIBE TAGS — pick 1-3 that genuinely fit (don't force them):
   "Rabbit Hole" "Dark Horse" "Eye Candy" "Wizardry" "Big Brain" "Crowd Pleaser"
