@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "worker": "tsx scripts/worker.ts",
-    "ingest": "tsx scripts/ingest.ts"
+    "ingest": "tsx scripts/ingest.ts",
+    "requeue": "tsx scripts/requeue.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

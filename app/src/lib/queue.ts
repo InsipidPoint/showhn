@@ -13,27 +13,30 @@ export type TaskType = "screenshot" | "analyze";
 
 /**
  * Enqueue a new task for a post.
- * Skips if an identical pending/processing task already exists.
+ * Skips if an identical pending/processing task already exists unless force=true.
  */
 export function enqueueTask(
   db: DB,
   type: TaskType,
   postId: number,
-  priority = 0
+  priority = 0,
+  force = false
 ): void {
-  const existing = db
-    .select({ id: schema.taskQueue.id })
-    .from(schema.taskQueue)
-    .where(
-      and(
-        eq(schema.taskQueue.type, type),
-        eq(schema.taskQueue.postId, postId),
-        sql`${schema.taskQueue.status} IN ('pending', 'processing')`
+  if (!force) {
+    const existing = db
+      .select({ id: schema.taskQueue.id })
+      .from(schema.taskQueue)
+      .where(
+        and(
+          eq(schema.taskQueue.type, type),
+          eq(schema.taskQueue.postId, postId),
+          sql`${schema.taskQueue.status} IN ('pending', 'processing')`
+        )
       )
-    )
-    .get();
+      .get();
 
-  if (existing) return;
+    if (existing) return;
+  }
 
   const now = Math.floor(Date.now() / 1000);
   db.insert(schema.taskQueue)
@@ -56,17 +59,65 @@ export function enqueuePostTasks(
   db: DB,
   postId: number,
   hasUrl: boolean,
-  priority = 0
+  priority = 0,
+  force = false
 ): void {
   if (hasUrl) {
-    enqueueTask(db, "screenshot", postId, priority);
+    enqueueTask(db, "screenshot", postId, priority, force);
   }
-  enqueueTask(db, "analyze", postId, priority);
+  enqueueTask(db, "analyze", postId, priority, force);
+}
+
+/**
+ * Bulk enqueue a task type for multiple post IDs.
+ * Used for reprocessing (e.g., after model/prompt change).
+ */
+export function bulkEnqueue(
+  db: DB,
+  type: TaskType,
+  postIds: number[],
+  priority = 0
+): number {
+  let count = 0;
+  const now = Math.floor(Date.now() / 1000);
+
+  db.transaction((tx) => {
+    for (const postId of postIds) {
+      // Skip if already pending/processing
+      const existing = tx
+        .select({ id: schema.taskQueue.id })
+        .from(schema.taskQueue)
+        .where(
+          and(
+            eq(schema.taskQueue.type, type),
+            eq(schema.taskQueue.postId, postId),
+            sql`${schema.taskQueue.status} IN ('pending', 'processing')`
+          )
+        )
+        .get();
+
+      if (existing) continue;
+
+      tx.insert(schema.taskQueue)
+        .values({
+          type,
+          postId,
+          status: "pending",
+          priority,
+          attempts: 0,
+          maxAttempts: 3,
+          createdAt: now,
+        })
+        .run();
+      count++;
+    }
+  });
+
+  return count;
 }
 
 /**
  * Atomically claim the next pending task of the given type.
- * Uses raw SQL to do UPDATE ... LIMIT 1 ... RETURNING for atomicity.
  */
 export function dequeueTask(
   db: DB,

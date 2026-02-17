@@ -71,6 +71,13 @@ const STALE_TIMEOUT = parseInt(
 );
 const STATS_INTERVAL = 60_000; // Log stats every 60s
 
+// Per-type rate limits (ms between tasks of the same type)
+const RATE_LIMITS: Record<string, number> = {
+  analyze: parseInt(process.env.WORKER_ANALYZE_DELAY || "1000", 10),   // ~1 req/sec to LLM API
+  screenshot: parseInt(process.env.WORKER_SCREENSHOT_DELAY || "3000", 10), // 3s between screenshots
+};
+const lastProcessed: Record<string, number> = {};
+
 let running = true;
 let browser: Browser | null = null;
 
@@ -303,6 +310,7 @@ async function processTask(task: schema.TaskQueue): Promise<void> {
 async function workerLoop(): Promise<void> {
   console.log("[worker] Starting task queue worker...");
   console.log(`[worker] Poll interval: ${POLL_INTERVAL}ms, Stale timeout: ${STALE_TIMEOUT}s`);
+  console.log(`[worker] Rate limits: analyze=${RATE_LIMITS.analyze}ms, screenshot=${RATE_LIMITS.screenshot}ms`);
 
   // Reclaim any stale tasks from a previous crash
   const reclaimed = reclaimStaleTasks(db, STALE_TIMEOUT);
@@ -335,14 +343,20 @@ async function workerLoop(): Promise<void> {
       continue;
     }
 
+    // Enforce per-type rate limit
+    const rateLimit = RATE_LIMITS[task.type] || 500;
+    const lastTime = lastProcessed[task.type] || 0;
+    const elapsed = Date.now() - lastTime;
+    if (elapsed < rateLimit) {
+      await new Promise((r) => setTimeout(r, rateLimit - elapsed));
+    }
+
     console.log(
       `[worker] Processing task #${task.id}: ${task.type} for post ${task.postId} (attempt ${task.attempts})`
     );
 
     await processTask(task);
-
-    // Small delay between tasks to avoid hammering resources
-    await new Promise((r) => setTimeout(r, 500));
+    lastProcessed[task.type] = Date.now();
   }
 }
 
