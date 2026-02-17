@@ -64,28 +64,48 @@ Return ONLY a JSON object with these fields:
   "tags": ["3-5 descriptive tags beyond the category"]
 }
 
-SCORING GUIDE — use the FULL 1-10 range. Aim for a bell curve centered around 5.
+SCORING GUIDE — use the FULL 1-10 range with this target distribution per dimension:
+  1-2: ~10% of projects (truly weak/generic)
+  3-4: ~25% (below average)
+  5-6: ~30% (average/decent)
+  7-8: ~25% (strong/impressive)
+  9-10: ~10% (exceptional/best-in-class)
+
+⚠️ THE #1 MISTAKE: Clustering everything at 4-6. BE BOLD. A generic AI chatbot wrapper is a 2, not a 4. A playable synthesizer in the browser is an 8-9, not a 7. Differentiate aggressively.
 
 NOVELTY — "Have I seen this before?"
-  High (7-9): Chess engine in 2KB. Visualizing transformer internals in-browser. Real-time bot attack visualization. A genuinely new approach to an old problem.
-  Medium (4-6): Interesting twist on existing concept. Combines known ideas in a fresh way. Solid but not surprising.
-  Low (1-3): Another todo app. "X but in Rust/Go." Yet another AI wrapper, CRM, dashboard, or landing page builder. Clone of well-known product with no meaningful differentiator.
+  9-10: Fundamentally new concept. Nothing like it exists. Changes how you think about the problem space.
+  7-8: Chess engine in 2KB. Visualizing transformer internals in-browser. Real-time bot attack visualization. Genuinely surprising approach.
+  5-6: Interesting twist on existing concept. Combines known ideas in a fresh way.
+  3-4: Derivative but with a minor differentiator. Somewhat predictable execution of a known idea.
+  1-2: Another todo app. "X but in Rust/Go." Yet another AI wrapper, CRM, dashboard, landing page builder, or clone with zero innovation.
 
-CRAFT — "How impressive is the execution?" (replaces ambition)
-  This rewards BOTH elegant small projects AND ambitious large ones. Quality of engineering, not just scope.
-  High (7-9): 2KB chess engine (extreme constraint mastery). Snowflake emulator in Rust (deep systems work). Polished UI with thoughtful UX. Real-time system with complex state management. Production-grade infra solving hard distributed systems problems.
-  Medium (4-6): Well-structured project, works as described, competent engineering. Standard web stack used effectively.
-  Low (1-3): Minimal wrapper around an API. Tutorial-level code. Broken or barely functional demo. README-only with no working product.
+CRAFT — "How impressive is the execution?"
+  Rewards BOTH elegant small projects AND ambitious large ones. Quality of engineering, not just scope.
+  9-10: Masterful engineering. 2KB chess engine. Novel compiler. Systems that shouldn't be possible in this stack.
+  7-8: Deep systems work (Snowflake emulator in Rust). Polished UI with thoughtful UX. Production-grade distributed systems.
+  5-6: Well-structured, works as described, competent engineering. Standard stack used effectively.
+  3-4: Works but rough edges. Copy-paste architecture. Limited error handling. Bare minimum effort.
+  1-2: Minimal API wrapper. Tutorial-level code. Broken or barely functional demo. README-only with no working product.
 
-APPEAL — "Would someone be excited to discover this?" (replaces usefulness)
-  This captures BOTH practical value AND delight/fun/coolness. Ask: "If I shared this link, would someone say 'oh cool' and actually click it?"
-  High (7-9): Moog synthesizer you can play in browser (instant fun). SQL traffic viewer (devs immediately want this). LLM search over Epstein files (compelling + topical). Self-hosted Firebase alternative (fills real gap). Interactive data visualization that reveals something surprising.
-  Medium (4-6): Useful for a niche audience. Decent developer tool with existing alternatives. Interesting but requires setup/commitment to appreciate.
-  Low (1-3): Generic SaaS with no demo. Dry enterprise tool with buzzword-heavy README and no clear "aha moment." Library with narrow use case and no visual/interactive element. "AI governance framework" that reads like a corporate pitch.
+APPEAL — "Would someone be excited to discover this?"
+  Captures BOTH practical value AND delight/fun/coolness. "If I shared this link, would someone say 'oh cool' and actually click it?"
+  9-10: Instant viral appeal. Everyone wants to try it right now. Moog synthesizer playable in browser.
+  7-8: SQL traffic viewer devs immediately want. Self-hosted Firebase alternative filling a real gap. Interactive data viz revealing something surprising.
+  5-6: Useful for a niche. Decent developer tool with existing alternatives.
+  3-4: Might be useful to someone but hard to get excited about. Requires significant context to appreciate.
+  1-2: Generic SaaS with no demo. Dry enterprise pitch with buzzword README. "AI governance framework" that reads like a corporate deck.
 
-IMPORTANT BALANCE: Don't penalize genuinely good enterprise/infrastructure projects — a well-executed database tool or security product that clearly solves a real pain point should score well on Appeal even if it's not "fun." The question is whether it makes someone go "oh, I need this" — that counts just as much as "oh, this is cool."
+IMPORTANT: Don't penalize good enterprise/infra projects — a well-executed DB tool solving real pain is a 7-8 on Appeal ("I need this!") even if it's not "fun."
 
-Differentiate! If everything scores 5, you're not being helpful. Spread your scores across the full range.
+Score each dimension INDEPENDENTLY. A project can be high novelty but low craft, or low novelty but high appeal.
+
+CALIBRATION REFERENCES — use these as anchors:
+• LOW (~59): "PythonICO – Simple SVG Badges for PyPI Stats" → N:2 C:2 A:2. Generic utility, nothing novel, minimal craft, no excitement.
+• MID (~76): "Kaneo – a project management tool which is not complicated" → N:4 C:6 A:6. Competent OSS tool, decent execution, useful but not surprising.
+• HIGH (~92): "Emergent Field Explorer – interactive moiré with easy shareable URLs" → N:6 C:9 A:9. Interactive browser art, masterful execution, instant delight.
+Score the new project relative to these anchors.
+
 Be concise. Return ONLY valid JSON, no markdown fencing.`;
 }
 
@@ -116,25 +136,31 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * Compute a 50-100 composite pick score from the three AI sub-scores (each 1-10).
+ * Compute a 55-100 composite pick score from the three AI sub-scores (each 1-10).
  * 
- * The LLM (gpt-5-mini) practically scores in a 2-8 range despite being told to use 1-10.
- * We map the weighted average so that:
- *   - avg 2 (minimum real scores) → ~55
- *   - avg 5 (typical project)     → ~72
- *   - avg 7 (strong project)      → ~83
- *   - avg 8 (top projects)        → ~89
- *   - avg 9+ (rare exceptional)   → ~95-100
+ * Piecewise linear mapping that stretches the crowded middle range:
+ *   raw 1-3  → 55-62   (weak projects, compressed — few posts here)
+ *   raw 3-5  → 62-74   (below average, decent spread)
+ *   raw 5-7  → 74-88   (average-to-good, widest spread where most posts cluster)
+ *   raw 7-10 → 88-100  (top tier, earned territory)
  *
- * Formula: 50 + (raw - 1) * (55 / 9)  — slightly steeper slope
  * Dimensions: Novelty (how fresh), Craft (how well-built), Appeal (how exciting to discover).
  * DB columns: novelty_score, ambition_score (=craft), usefulness_score (=appeal).
  */
 export function computePickScore(novelty: number, usefulness: number, ambition: number): number {
   //Args: novelty, appeal (usefulness col), craft (ambition col)
   const raw = novelty * 0.35 + usefulness * 0.35 + ambition * 0.30;
-  const score = 50 + (raw - 1) * (55 / 9);
-  return Math.round(Math.min(100, Math.max(50, score)));
+  let score: number;
+  if (raw <= 3) {
+    score = 55 + (raw - 1) * 3.5;    // 1→55, 3→62
+  } else if (raw <= 5) {
+    score = 62 + (raw - 3) * 6;      // 3→62, 5→74
+  } else if (raw <= 7) {
+    score = 74 + (raw - 5) * 7;      // 5→74, 7→88
+  } else {
+    score = 88 + (raw - 7) * 4;      // 7→88, 10→100
+  }
+  return Math.round(Math.min(100, Math.max(55, score)));
 }
 
 function parseResult(raw: string): AnalysisResult {
