@@ -57,14 +57,25 @@ Return ONLY a JSON object with these fields:
   "tech_stack": ["Array of detected technologies, frameworks, languages"],
   "target_audience": "Who would use this (e.g. 'Backend developers', 'Small business owners')",
   "vibe_score": 1-5 (1=weekend hack, 2=side project, 3=solid tool, 4=polished product, 5=serious startup),
-  "novelty_score": 1-10 (How new or unique is this idea? 1-2: Clone of existing product, nothing new. 3-4: Minor twist on well-known concept. 5-6: Interesting combination or fresh angle. 7-8: Genuinely novel approach, rarely seen before. 9-10: Paradigm-shifting, truly unprecedented),
-  "ambition_score": 1-10 (Technical depth and scope? 1-2: Simple wrapper or tutorial-level. 3-4: Standard CRUD or single-feature tool. 5-6: Solid engineering, multiple components. 7-8: Complex system, significant technical challenges solved. 9-10: Cutting-edge research or massive infrastructure),
-  "usefulness_score": 1-10 (Impact for target audience? 1-2: Solves a non-problem or toy use case. 3-4: Marginal improvement over existing solutions. 5-6: Genuinely useful for a niche audience. 7-8: Broadly useful, clear pain point addressed. 9-10: Essential tool, large audience desperately needs this),
+  "novelty_score": 1-10 (How new or unique is this idea?),
+  "ambition_score": 1-10 (Technical depth and scope?),
+  "usefulness_score": 1-10 (Practical impact for target audience?),
   "pick_reason": "One sentence explaining what makes this project noteworthy, or 'Nothing stands out' if generic",
   "tags": ["3-5 descriptive tags beyond the category"]
 }
 
-IMPORTANT: Be harsh with scores. Most projects should score 3-5 on each dimension. Reserve 7+ for truly exceptional work. Do NOT inflate scores.
+SCORING GUIDE — use the FULL 1-10 range, aim for a bell curve centered around 5:
+  1-2: Bottom tier. Toy/trivial (quiz app, basic wrapper, tutorial clone)
+  3-4: Below average. Minor utility, limited scope or originality
+  5-6: Average Show HN. Decent effort, some value, nothing remarkable
+  7-8: Strong. Genuinely impressive in this dimension — top ~15%
+  9-10: Exceptional. Reserved for the best ~2% — paradigm-shifting novelty, massive technical depth, or solves a major pain point
+
+Novelty: Is this a fresh idea or yet another todo/CRM/dashboard? Clones and "X but in Y language" = 2-3.
+Ambition: A CLI wrapper = 2-3. Full-stack platform with complex algorithms = 7-8. Novel research = 9-10.
+Usefulness: Does the target audience actually need this TODAY? Theoretical/niche toys = 2-3. Broad real pain point = 7-8.
+
+Differentiate! If everything scores 5, you're not being helpful. Spread your scores.
 Be concise. Return ONLY valid JSON, no markdown fencing.`;
 }
 
@@ -95,11 +106,17 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * Compute a 0-100 composite pick score from the three AI sub-scores.
+ * Compute a 50-100 composite pick score from the three AI sub-scores (each 1-10).
+ * Maps the raw weighted average (1-10) into a 50-100 range so most projects
+ * score ≥50 (encouraging) while still differentiating at the top.
+ *
+ * Raw 1 → 50, Raw 10 → 100. Formula: 50 + (weighted_avg - 1) * (50/9)
  * Novelty weighted highest — AI picks should surface things the crowd might miss.
  */
 export function computePickScore(novelty: number, usefulness: number, ambition: number): number {
-  return Math.round((novelty * 0.45 + usefulness * 0.30 + ambition * 0.25) * 10);
+  const raw = novelty * 0.40 + usefulness * 0.30 + ambition * 0.30;
+  const score = 50 + (raw - 1) * (50 / 9);
+  return Math.round(Math.min(100, Math.max(50, score)));
 }
 
 function parseResult(raw: string): AnalysisResult {
