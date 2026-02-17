@@ -159,7 +159,7 @@ async function callOpenAI(prompt: string, model: string, screenshotBase64?: stri
   const response = await client.chat.completions.create({
     model,
     messages: [{ role: "user", content }],
-    max_completion_tokens: 1000,
+    max_completion_tokens: 2000,
     response_format: { type: "json_object" },
   });
   return response.choices[0]?.message?.content || "";
@@ -179,7 +179,7 @@ async function callAnthropic(prompt: string, model: string, screenshotBase64?: s
 
   const response = await client.messages.create({
     model,
-    max_tokens: 1000,
+    max_tokens: 2000,
     messages: [{ role: "user", content }],
   });
   const block = response.content[0];
