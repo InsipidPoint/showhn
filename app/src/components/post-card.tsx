@@ -27,6 +27,21 @@ function scoreTextColor(ratio: number): string {
   return "text-green-600 dark:text-green-400";
 }
 
+// Pick score colors — calibrated for 50-100 range where most scores land 65-85
+function pickBorderColor(score: number): string {
+  if (score < 65) return "border-orange-400/60 dark:border-orange-500/60";
+  if (score < 72) return "border-yellow-400/60 dark:border-yellow-500/60";
+  if (score < 80) return "border-emerald-400/60 dark:border-emerald-500/60";
+  return "border-green-500/60 dark:border-green-400/60";
+}
+
+function pickTextColor(score: number): string {
+  if (score < 65) return "text-orange-600 dark:text-orange-400";
+  if (score < 72) return "text-yellow-600 dark:text-yellow-400";
+  if (score < 80) return "text-emerald-600 dark:text-emerald-400";
+  return "text-green-600 dark:text-green-400";
+}
+
 function MiniScoreBar({ score, max, label }: { score: number; max: number; label: string }) {
   const ratio = score / max;
   return (
@@ -109,8 +124,8 @@ export function PostCard({
           )}
           {analysis?.pickScore != null && (
             <div className="absolute top-2 right-2">
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full bg-background/85 backdrop-blur-sm border-2 shadow-sm ${scoreBorderColor(analysis.pickScore / 100)}`}>
-                <span className={`text-[10px] font-bold leading-none ${scoreTextColor(analysis.pickScore / 100)}`}>
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full bg-background/85 backdrop-blur-sm border-2 shadow-sm ${pickBorderColor(analysis.pickScore)}`}>
+                <span className={`text-[10px] font-bold leading-none ${pickTextColor(analysis.pickScore)}`}>
                   {analysis.pickScore}
                 </span>
               </div>
