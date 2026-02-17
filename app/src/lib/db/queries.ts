@@ -32,7 +32,7 @@ export async function getPosts({
   categories?: string[];
   limit?: number;
   offset?: number;
-} = {}): Promise<{ posts: (Post & { analysis: AiAnalysis | null })[] }> {
+} = {}): Promise<{ posts: (Post & { analysis: AiAnalysis | null })[]; total: number }> {
   const timeFilter = getTimeFilter(time);
 
   const conditions: ReturnType<typeof gte>[] = [gte(posts.createdAt, timeFilter)];
@@ -71,11 +71,18 @@ export async function getPosts({
 
   const results = query.all();
 
+  // Get total count (without limit/offset) for the same filters
+  const countQuery = joinType === "inner"
+    ? db.select({ count: sql<number>`count(*)` }).from(posts).innerJoin(aiAnalysis, eq(posts.id, aiAnalysis.postId)).where(and(...conditions))
+    : db.select({ count: sql<number>`count(*)` }).from(posts).leftJoin(aiAnalysis, eq(posts.id, aiAnalysis.postId)).where(and(...conditions));
+  const total = countQuery.get()?.count ?? 0;
+
   return {
     posts: results.map((r) => ({
       ...r.posts,
       analysis: r.ai_analysis,
     })),
+    total,
   };
 }
 

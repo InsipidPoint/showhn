@@ -29,7 +29,7 @@ export default async function Home({
     ? [catParam]
     : [];
 
-  const [{ posts }, allCategories] = await Promise.all([
+  const [{ posts, total }, allCategories] = await Promise.all([
     getPosts({ time, sort, categories }),
     getCategories(),
   ]);
@@ -37,7 +37,7 @@ export default async function Home({
   return (
     <>
       <Suspense fallback={null}>
-        <FilterBar categories={allCategories} totalCount={posts.length} />
+        <FilterBar categories={allCategories} totalCount={total} />
       </Suspense>
 
       {posts.length === 0 ? (
