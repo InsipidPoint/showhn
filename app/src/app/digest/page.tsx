@@ -109,14 +109,7 @@ export default async function DigestPage({
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {digest.aiPicks.map((post) => (
-                  <div key={post.id}>
-                    <PostCard post={post} analysis={post.analysis} />
-                    {post.analysis?.pickReason && post.analysis.pickReason !== "Nothing stands out" && (
-                      <p className="text-xs text-muted-foreground italic mt-1.5 px-1 line-clamp-2">
-                        {post.analysis.pickReason}
-                      </p>
-                    )}
-                  </div>
+                  <PostCard key={post.id} post={post} analysis={post.analysis} />
                 ))}
               </div>
             </section>
