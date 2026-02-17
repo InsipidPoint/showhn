@@ -107,14 +107,12 @@ Return ONLY a JSON object with these fields:
   "tags": ["3-5 descriptive tags beyond the category"]
 }
 
-TIER GUIDE — classify the project into exactly one tier based purely on its merits:
-  gem:    Exceptional. You'd mass-share this link. Genuinely novel idea OR masterful execution OR instant viral appeal. The kind of project that makes HN great. Most projects are NOT this.
-  banger: Really compelling. Has a clear "oh that's cool" moment. Strong execution on an interesting idea, or fills a real gap impressively.
-  solid:  Good work. Competent project that does what it says. Interesting to its niche but nothing that makes you stop scrolling.
-  mid:    Mediocre. Works but doesn't excite. Derivative idea, unremarkable execution, or solves a problem nobody has. You wouldn't share the link.
-  pass:   Bad. Generic/broken/no substance. Yet another AI wrapper with no differentiation, empty landing page, tutorial-level clone, or fundamentally flawed.
-
-Be honest and critical. Most Show HN projects are average — don't grade on a curve. A "solid" is genuinely good; don't hand it out just because the project exists and works.
+TIER GUIDE — pick the one that fits:
+  gem:    You'd mass-share this link. Genuinely novel idea, masterful execution, or instant viral appeal.
+  banger: Has a clear "oh that's cool" moment. Strong execution on an interesting idea, or fills a real gap impressively.
+  solid:  Competent project that does what it says. Interesting to its niche, reasonable execution.
+  mid:    Works but doesn't excite. Derivative idea, unremarkable execution, or solves a problem nobody has.
+  pass:   Generic, broken, or no substance. No differentiation, empty landing page, tutorial-level clone, or fundamentally flawed.
 
 VIBE TAGS — pick 1-3 that genuinely fit from this list (don't force them):
   "Rabbit Hole"      — You'll lose hours exploring this
