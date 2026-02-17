@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTransition, useOptimistic, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -18,50 +19,71 @@ const SORT_OPTIONS = [
   { label: "AI Picks", value: "interesting" },
 ] as const;
 
+type FilterState = {
+  time: string;
+  sort: string;
+  categories: string[];
+};
+
 export function FilterBar({ categories, totalCount }: { categories: string[]; totalCount?: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
-  const currentTime = searchParams.get("t") || "week";
-  const currentSort = searchParams.get("sort") || "newest";
-  const currentCategories = searchParams.getAll("cat");
+  const currentState: FilterState = {
+    time: searchParams.get("t") || "week",
+    sort: searchParams.get("sort") || "newest",
+    categories: searchParams.getAll("cat"),
+  };
 
-  function updateParams(updates: Record<string, string | string[] | null>) {
-    const params = new URLSearchParams(searchParams.toString());
-    for (const [key, value] of Object.entries(updates)) {
-      params.delete(key);
-      if (value !== null) {
-        if (Array.isArray(value)) {
-          for (const v of value) params.append(key, v);
-        } else {
-          params.set(key, value);
-        }
-      }
-    }
-    router.push(`/?${params.toString()}`);
+  const [optimisticState, setOptimisticState] = useOptimistic(currentState);
+
+  const navigate = useCallback((newState: FilterState) => {
+    const params = new URLSearchParams();
+    if (newState.time !== "week") params.set("t", newState.time);
+    if (newState.sort !== "newest") params.set("sort", newState.sort);
+    for (const cat of newState.categories) params.append("cat", cat);
+    const qs = params.toString();
+    startTransition(() => {
+      setOptimisticState(newState);
+      router.push(qs ? `/?${qs}` : "/");
+    });
+  }, [router, startTransition, setOptimisticState]);
+
+  function setTime(value: string) {
+    navigate({ ...optimisticState, time: value });
+  }
+
+  function setSort(value: string) {
+    navigate({ ...optimisticState, sort: value });
   }
 
   function toggleCategory(cat: string) {
-    const updated = currentCategories.includes(cat)
-      ? currentCategories.filter((c) => c !== cat)
-      : [...currentCategories, cat];
-    updateParams({ cat: updated.length > 0 ? updated : null });
+    const current = optimisticState.categories;
+    const updated = current.includes(cat)
+      ? current.filter((c) => c !== cat)
+      : [...current, cat];
+    navigate({ ...optimisticState, categories: updated });
+  }
+
+  function clearCategories() {
+    navigate({ ...optimisticState, categories: [] });
   }
 
   return (
-    <div className="space-y-3 mb-6">
+    <div className={cn("space-y-3 mb-6 transition-opacity duration-150", isPending && "opacity-60")}>
       {/* Time tabs + sort row */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div className="flex items-center gap-0.5 overflow-x-auto">
+        <div className="flex items-center gap-0.5 bg-muted/60 rounded-lg p-0.5 overflow-x-auto">
           {TIME_TABS.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => updateParams({ t: tab.value })}
+              onClick={() => setTime(tab.value)}
               className={cn(
-                "px-3 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap",
-                currentTime === tab.value
-                  ? "bg-primary text-primary-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                "px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition-all duration-150",
+                optimisticState.time === tab.value
+                  ? "bg-primary text-primary-foreground font-medium shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-background/60"
               )}
             >
               {tab.label}
@@ -69,16 +91,16 @@ export function FilterBar({ categories, totalCount }: { categories: string[]; to
           ))}
         </div>
 
-        <div className="flex items-center gap-0.5">
-          <span className="text-xs text-muted-foreground mr-1 hidden sm:inline">Sort:</span>
+        <div className="flex items-center gap-0.5 bg-muted/40 rounded-lg p-0.5">
+          <span className="text-xs text-muted-foreground mx-1.5 hidden sm:inline">Sort:</span>
           {SORT_OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => updateParams({ sort: opt.value })}
+              onClick={() => setSort(opt.value)}
               className={cn(
-                "px-2 py-1 text-xs rounded transition-colors whitespace-nowrap",
-                currentSort === opt.value
-                  ? "bg-secondary text-secondary-foreground font-medium"
+                "px-2.5 py-1 text-xs rounded-md whitespace-nowrap transition-all duration-150",
+                optimisticState.sort === opt.value
+                  ? "bg-background text-foreground font-medium shadow-sm dark:bg-secondary"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -91,24 +113,32 @@ export function FilterBar({ categories, totalCount }: { categories: string[]; to
       {/* Category chips */}
       {categories.length > 0 && (
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          {currentCategories.length > 0 && (
+          {optimisticState.categories.length > 0 && (
             <button
-              onClick={() => updateParams({ cat: null })}
-              className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-0.5 shrink-0"
+              onClick={clearCategories}
+              className="text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 shrink-0 rounded-full hover:bg-muted transition-colors duration-150"
             >
               Clear
             </button>
           )}
-          {categories.map((cat) => (
-            <Badge
-              key={cat}
-              variant={currentCategories.includes(cat) ? "default" : "outline"}
-              className="cursor-pointer whitespace-nowrap select-none"
-              onClick={() => toggleCategory(cat)}
-            >
-              {cat}
-            </Badge>
-          ))}
+          {categories.map((cat) => {
+            const isActive = optimisticState.categories.includes(cat);
+            return (
+              <Badge
+                key={cat}
+                variant={isActive ? "default" : "outline"}
+                className={cn(
+                  "cursor-pointer whitespace-nowrap select-none transition-all duration-150",
+                  isActive
+                    ? "shadow-sm"
+                    : "hover:bg-accent hover:text-accent-foreground hover:border-primary/30"
+                )}
+                onClick={() => toggleCategory(cat)}
+              >
+                {cat}
+              </Badge>
+            );
+          })}
         </div>
       )}
 
