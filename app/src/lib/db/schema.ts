@@ -82,3 +82,17 @@ export type AiAnalysis = typeof aiAnalysis.$inferSelect;
 export type NewAiAnalysis = typeof aiAnalysis.$inferInsert;
 export type TaskQueue = typeof taskQueue.$inferSelect;
 export type NewTaskQueue = typeof taskQueue.$inferInsert;
+
+export const subscribers = sqliteTable(
+  "subscribers",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    email: text("email").notNull().unique(),
+    frequency: text("frequency").notNull(), // daily | weekly
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [index("idx_subscribers_email").on(table.email)]
+);
+
+export type Subscriber = typeof subscribers.$inferSelect;
+export type NewSubscriber = typeof subscribers.$inferInsert;
