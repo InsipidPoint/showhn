@@ -392,9 +392,11 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
 
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
-  // Step 1: Open browser, take screenshot, extract rendered text
+  // Step 1: Open browser, take screenshot (if needed), extract rendered text
   let pageText = "";
   let screenshotSuccess = false;
+  const screenshotPath = path.join(SCREENSHOT_DIR, `${post.id}.webp`);
+  const hasExistingScreenshot = post.status === "active" && fs.existsSync(screenshotPath);
 
   const b = await ensureBrowser();
   const context = await b.newContext({
@@ -413,21 +415,23 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
     }
     await page.waitForTimeout(1500);
 
-    // Take screenshot
-    const screenshotPath = path.join(SCREENSHOT_DIR, `${post.id}.webp`);
-
-    try {
-      await page.screenshot({
-        path: screenshotPath,
-        type: "png",
-        clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
-      });
-      screenshotSuccess = true;
-    } catch (err) {
-      console.error(`  [process] Screenshot failed for post ${post.id}:`, (err as Error).message);
+    // Take screenshot only if we don't have one already
+    if (!hasExistingScreenshot) {
+      try {
+        await page.screenshot({
+          path: screenshotPath,
+          type: "png",
+          clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
+        });
+        screenshotSuccess = true;
+      } catch (err) {
+        console.error(`  [process] Screenshot failed for post ${post.id}:`, (err as Error).message);
+      }
+    } else {
+      screenshotSuccess = true; // already have it
     }
 
-    // Extract rendered page text
+    // Extract rendered page text (always — needed for AI analysis)
     try {
       pageText = await page.innerText("body");
       pageText = pageText.replace(/\s+/g, " ").trim().slice(0, 5000);
@@ -436,6 +440,12 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
     }
   } catch (err) {
     console.error(`  [process] Page load failed for post ${post.id} (${post.url}):`, (err as Error).message);
+    // If page load failed but we have an existing screenshot, still try analysis
+    // with lightweight fetch as fallback
+    if (hasExistingScreenshot) {
+      screenshotSuccess = true;
+      pageText = await fetchPageContent(post.url);
+    }
   } finally {
     await context.close();
   }
