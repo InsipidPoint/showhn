@@ -3,6 +3,49 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Post, AiAnalysis } from "@/lib/db/schema";
 
+function scoreColor(ratio: number): string {
+  if (ratio <= 0.2) return "bg-red-400 dark:bg-red-500";
+  if (ratio <= 0.4) return "bg-orange-400 dark:bg-orange-500";
+  if (ratio <= 0.6) return "bg-yellow-400 dark:bg-yellow-500";
+  if (ratio <= 0.8) return "bg-emerald-400 dark:bg-emerald-500";
+  return "bg-green-500 dark:bg-green-400";
+}
+
+function scoreBorderColor(ratio: number): string {
+  if (ratio <= 0.2) return "border-red-400/60 dark:border-red-500/60";
+  if (ratio <= 0.4) return "border-orange-400/60 dark:border-orange-500/60";
+  if (ratio <= 0.6) return "border-yellow-400/60 dark:border-yellow-500/60";
+  if (ratio <= 0.8) return "border-emerald-400/60 dark:border-emerald-500/60";
+  return "border-green-500/60 dark:border-green-400/60";
+}
+
+function scoreTextColor(ratio: number): string {
+  if (ratio <= 0.2) return "text-red-600 dark:text-red-400";
+  if (ratio <= 0.4) return "text-orange-600 dark:text-orange-400";
+  if (ratio <= 0.6) return "text-yellow-600 dark:text-yellow-400";
+  if (ratio <= 0.8) return "text-emerald-600 dark:text-emerald-400";
+  return "text-green-600 dark:text-green-400";
+}
+
+function MiniScoreBar({ score, max, label }: { score: number; max: number; label: string }) {
+  const ratio = score / max;
+  return (
+    <div className="flex items-center gap-1.5 min-w-0">
+      <span className="text-[9px] text-muted-foreground/70 w-[56px] shrink-0">{label}</span>
+      <div className="flex gap-[1.5px]">
+        {Array.from({ length: max }, (_, i) => (
+          <div
+            key={i}
+            className={`w-[5px] h-[5px] rounded-[1px] ${
+              i < score ? scoreColor(ratio) : "bg-muted-foreground/15"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function slugify(title: string): string {
   return title
     .toLowerCase()
@@ -43,7 +86,7 @@ export function PostCard({
         <div className="relative aspect-[16/10] bg-muted overflow-hidden">
           {post.hasScreenshot ? (
             <Image
-              src={`/screenshots/${post.id}_thumb.webp`}
+              src={`/screenshots/${post.id}.webp`}
               alt={displayTitle}
               fill
               className="object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
@@ -62,6 +105,15 @@ export function PostCard({
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-background/85 backdrop-blur-sm border border-border/50 shadow-sm">
                 {analysis.category}
               </Badge>
+            </div>
+          )}
+          {analysis?.pickScore != null && (
+            <div className="absolute top-2 right-2">
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full bg-background/85 backdrop-blur-sm border-2 shadow-sm ${scoreBorderColor(analysis.pickScore / 100)}`}>
+                <span className={`text-[10px] font-bold leading-none ${scoreTextColor(analysis.pickScore / 100)}`}>
+                  {analysis.pickScore}
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -86,6 +138,20 @@ export function PostCard({
                 ? post.storyText.replace(/<[^>]*>/g, "").slice(0, 120)
                 : "\u00A0"}
             </p>
+          )}
+
+          {(analysis?.noveltyScore || analysis?.ambitionScore || analysis?.usefulnessScore) && (
+            <div className="flex flex-col gap-0.5 mb-2">
+              {analysis.noveltyScore != null && analysis.noveltyScore > 0 && (
+                <MiniScoreBar score={analysis.noveltyScore} max={10} label="Novelty" />
+              )}
+              {analysis.ambitionScore != null && analysis.ambitionScore > 0 && (
+                <MiniScoreBar score={analysis.ambitionScore} max={10} label="Ambition" />
+              )}
+              {analysis.usefulnessScore != null && analysis.usefulnessScore > 0 && (
+                <MiniScoreBar score={analysis.usefulnessScore} max={10} label="Usefulness" />
+              )}
+            </div>
           )}
 
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -116,6 +182,11 @@ export function PostCardSkeleton() {
         <div className="h-4 bg-muted rounded animate-pulse w-3/4" />
         <div className="h-3 bg-muted rounded animate-pulse w-full" />
         <div className="h-3 bg-muted rounded animate-pulse w-1/2" />
+        <div className="space-y-1 pt-1">
+          <div className="h-[5px] bg-muted rounded animate-pulse w-24" />
+          <div className="h-[5px] bg-muted rounded animate-pulse w-24" />
+          <div className="h-[5px] bg-muted rounded animate-pulse w-24" />
+        </div>
         <div className="flex justify-between pt-1">
           <div className="h-3 bg-muted rounded animate-pulse w-16" />
           <div className="h-3 bg-muted rounded animate-pulse w-24" />

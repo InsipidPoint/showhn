@@ -81,7 +81,6 @@ const SCREENSHOT_TIMEOUT = parseInt(
   10
 );
 const VIEWPORT = { width: 1280, height: 800 };
-const THUMB_WIDTH = 640;
 
 // Worker config
 const POLL_INTERVAL = parseInt(process.env.WORKER_POLL_INTERVAL || "2000", 10);
@@ -121,7 +120,6 @@ async function takeScreenshot(
   url: string
 ): Promise<boolean> {
   const screenshotPath = path.join(SCREENSHOT_DIR, `${postId}.webp`);
-  const thumbPath = path.join(SCREENSHOT_DIR, `${postId}_thumb.webp`);
 
   const b = await ensureBrowser();
   const context = await b.newContext({
@@ -154,13 +152,6 @@ async function takeScreenshot(
       path: screenshotPath,
       type: "png",
       clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
-    });
-
-    await page.setViewportSize({ width: THUMB_WIDTH, height: 400 });
-    await page.screenshot({
-      path: thumbPath,
-      type: "png",
-      clip: { x: 0, y: 0, width: THUMB_WIDTH, height: 400 },
     });
 
     return true;
@@ -422,21 +413,14 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
     }
     await page.waitForTimeout(1500);
 
-    // Take screenshots
+    // Take screenshot
     const screenshotPath = path.join(SCREENSHOT_DIR, `${post.id}.webp`);
-    const thumbPath = path.join(SCREENSHOT_DIR, `${post.id}_thumb.webp`);
 
     try {
       await page.screenshot({
         path: screenshotPath,
         type: "png",
         clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
-      });
-      await page.setViewportSize({ width: THUMB_WIDTH, height: 400 });
-      await page.screenshot({
-        path: thumbPath,
-        type: "png",
-        clip: { x: 0, y: 0, width: THUMB_WIDTH, height: 400 },
       });
       screenshotSuccess = true;
     } catch (err) {

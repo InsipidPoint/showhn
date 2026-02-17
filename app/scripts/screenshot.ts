@@ -22,7 +22,6 @@ const SCREENSHOT_DIR = path.join(process.cwd(), "public", "screenshots");
 const CONCURRENCY = parseInt(process.env.SCREENSHOT_CONCURRENCY || "4", 10);
 const TIMEOUT = parseInt(process.env.SCREENSHOT_TIMEOUT || "15000", 10);
 const VIEWPORT = { width: 1280, height: 800 };
-const THUMB_WIDTH = 640;
 
 function getLimit(): number {
   const idx = process.argv.indexOf("--limit");
@@ -38,7 +37,6 @@ async function takeScreenshot(
   url: string
 ): Promise<boolean> {
   const screenshotPath = path.join(SCREENSHOT_DIR, `${postId}.webp`);
-  const thumbPath = path.join(SCREENSHOT_DIR, `${postId}_thumb.webp`);
 
   const context = await browser.newContext({
     viewport: VIEWPORT,
@@ -53,19 +51,10 @@ async function takeScreenshot(
     // (GitHub/SPAs keep connections open that prevent networkidle from firing)
     await page.waitForTimeout(2000);
 
-    // Full screenshot
     await page.screenshot({
       path: screenshotPath,
-      type: "png", // We'll convert to webp below if sharp is available
-      clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
-    });
-
-    // Generate thumbnail by taking a smaller screenshot
-    await page.setViewportSize({ width: THUMB_WIDTH, height: 400 });
-    await page.screenshot({
-      path: thumbPath,
       type: "png",
-      clip: { x: 0, y: 0, width: THUMB_WIDTH, height: 400 },
+      clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
     });
 
     return true;
