@@ -1,5 +1,6 @@
 import { PostCard } from "@/components/post-card";
 import { Badge } from "@/components/ui/badge";
+import { SubscribeForm } from "@/components/subscribe-form";
 import { getDigest } from "@/lib/db/queries";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -135,6 +136,11 @@ export default async function DigestPage({
           </section>
         </>
       )}
+
+      {/* Subscribe */}
+      <div className="mt-12">
+        <SubscribeForm />
+      </div>
     </>
   );
 }
