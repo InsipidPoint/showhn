@@ -1,4 +1,5 @@
 import { getPost } from "@/lib/db/queries";
+import { triggerRefreshIfStale } from "@/lib/refresh";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,7 @@ export default async function PostPage({ params }: Props) {
   const { id } = await params;
   const post = await getPost(parseInt(id, 10));
   if (!post) notFound();
+  triggerRefreshIfStale(post);
 
   const displayTitle = post.title.replace(/^Show HN:\s*/i, "");
   const hnUrl = `https://news.ycombinator.com/item?id=${post.id}`;
