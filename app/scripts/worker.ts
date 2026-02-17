@@ -73,7 +73,7 @@ const STATS_INTERVAL = 60_000; // Log stats every 60s
 
 // Per-type rate limits (ms between tasks of the same type)
 // Screenshots run on this VPS (Chromium) — delay is just memory breathing room.
-// Analysis calls OpenAI — gpt-4o-mini allows 500+ RPM on Tier 1, 500ms is ~120 RPM.
+// Analysis calls OpenAI (gpt-5-mini) — 500ms is ~120 RPM, well within rate limits.
 const RATE_LIMITS: Record<string, number> = {
   analyze: parseInt(process.env.WORKER_ANALYZE_DELAY || "500", 10),
   screenshot: parseInt(process.env.WORKER_SCREENSHOT_DELAY || "500", 10),
