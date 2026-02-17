@@ -2,8 +2,12 @@
  * Batch re-score existing posts using data already in the DB.
  * Sends multiple posts per LLM call for tier classification + vibe tags + highlight.
  *
+ * With --vision flag, processes one post at a time and sends the screenshot
+ * from disk to the model for visual analysis (no browser needed).
+ *
  * Usage:
- *   npx tsx scripts/rescore.ts                  # all posts with existing analysis
+ *   npx tsx scripts/rescore.ts                  # batch mode (text only)
+ *   npx tsx scripts/rescore.ts --vision         # single-post mode with screenshots
  *   npx tsx scripts/rescore.ts --limit 50       # first 50 posts
  *   npx tsx scripts/rescore.ts --batch 15       # 15 posts per API call (default 10)
  *   npx tsx scripts/rescore.ts --post 123 456   # specific post IDs
@@ -15,8 +19,9 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import OpenAI from "openai";
 import * as schema from "../src/lib/db/schema";
-import { tierToPickScore, TIERS, VIBE_TAGS, type Tier } from "../src/lib/ai/llm";
+import { analyzePost, tierToPickScore, TIERS, VIBE_TAGS, type Tier } from "../src/lib/ai/llm";
 import path from "path";
+import fs from "fs";
 import dotenv from "dotenv";
 
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
@@ -25,6 +30,8 @@ const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "s
 const sqlite = new Database(DB_PATH);
 sqlite.pragma("journal_mode = WAL");
 const db = drizzle(sqlite, { schema });
+
+const SCREENSHOT_DIR = path.join(process.cwd(), "public", "screenshots");
 
 // Migration: add new columns if missing
 try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN tier TEXT`); } catch { /* exists */ }
@@ -56,9 +63,10 @@ type ScoreResult = {
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const flags: { limit?: number; postIds?: number[]; dryRun: boolean; batchSize: number } = {
+  const flags: { limit?: number; postIds?: number[]; dryRun: boolean; batchSize: number; vision: boolean } = {
     dryRun: false,
     batchSize: 10,
+    vision: false,
   };
   let i = 0;
   while (i < args.length) {
@@ -73,11 +81,15 @@ function parseArgs() {
       }
     } else if (args[i] === "--dry-run") {
       flags.dryRun = true;
+    } else if (args[i] === "--vision") {
+      flags.vision = true;
     }
     i++;
   }
   return flags;
 }
+
+// ─── Batch mode (text-only, multiple posts per call) ─────────────────────────
 
 function formatPost(post: PostRow, idx: number): string {
   const techStack = post.tech_stack ? JSON.parse(post.tech_stack) : [];
@@ -179,6 +191,59 @@ async function rescoreBatch(posts: PostRow[]): Promise<ScoreResult[]> {
   }
 }
 
+// ─── Vision mode (one post at a time, with screenshot) ──────────────────────
+
+function loadScreenshot(postId: number): string | undefined {
+  const screenshotPath = path.join(SCREENSHOT_DIR, `${postId}.webp`);
+  if (fs.existsSync(screenshotPath)) {
+    return fs.readFileSync(screenshotPath).toString("base64");
+  }
+  return undefined;
+}
+
+async function rescoreWithVision(post: PostRow): Promise<ScoreResult | null> {
+  try {
+    const screenshotBase64 = loadScreenshot(post.id);
+    const pageContent = post.summary || post.story_text?.replace(/<[^>]*>/g, " ").slice(0, 3000) || post.title;
+
+    const { result } = await analyzePost(
+      post.title,
+      post.url,
+      pageContent,
+      post.story_text,
+      undefined,
+      screenshotBase64
+    );
+
+    return {
+      id: post.id,
+      tier: result.tier,
+      vibe_tags: result.vibe_tags,
+      highlight: result.highlight,
+    };
+  } catch (err) {
+    console.error(`  ✗ ${post.id}: ${(err as Error).message}`);
+    return null;
+  }
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+function saveResult(postId: number, result: ScoreResult, existingPickReason: string | null) {
+  const pickScore = tierToPickScore(result.tier);
+  db.update(schema.aiAnalysis)
+    .set({
+      tier: result.tier,
+      vibeTags: JSON.stringify(result.vibe_tags),
+      pickReason: result.highlight || existingPickReason || "",
+      pickScore,
+      analyzedAt: Math.floor(Date.now() / 1000),
+      model: process.env.ANALYSIS_MODEL || "gpt-5-mini",
+    })
+    .where(eq(schema.aiAnalysis.postId, postId))
+    .run();
+}
+
 async function main() {
   const flags = parseArgs();
 
@@ -202,63 +267,88 @@ async function main() {
   }
 
   const posts = sqlite.prepare(query).all(...params) as PostRow[];
-  const batches = Math.ceil(posts.length / flags.batchSize);
-
-  console.log(`[rescore] ${posts.length} posts, batch size ${flags.batchSize} → ${batches} API calls`);
-  if (flags.dryRun) console.log("[rescore] DRY RUN — no writes");
 
   let processed = 0;
   let errors = 0;
   const tierCounts: Record<string, number> = {};
 
-  for (let b = 0; b < batches; b++) {
-    const batch = posts.slice(b * flags.batchSize, (b + 1) * flags.batchSize);
-    const batchLabel = `[${b + 1}/${batches}]`;
+  if (flags.vision) {
+    // Vision mode: one post at a time, with screenshot
+    console.log(`[rescore] Vision mode: ${posts.length} posts, 1 per API call (with screenshots)`);
+    if (flags.dryRun) console.log("[rescore] DRY RUN — no writes");
 
-    const results = await rescoreBatch(batch);
+    for (let i = 0; i < posts.length; i++) {
+      const post = posts[i];
+      const label = `[${i + 1}/${posts.length}]`;
+      const hasScreenshot = fs.existsSync(path.join(SCREENSHOT_DIR, `${post.id}.webp`));
 
-    if (results.length === 0) {
-      errors += batch.length;
-      console.log(`  ${batchLabel} ✗ Entire batch failed`);
-      continue;
-    }
+      const result = await rescoreWithVision(post);
 
-    const resultMap = new Map(results.map((r) => [r.id, r]));
-
-    for (const post of batch) {
-      const result = resultMap.get(post.id);
       if (!result) {
         errors++;
-        console.log(`  ${batchLabel} ✗ ${post.id}: Missing from response`);
+        console.log(`  ${label} ✗ ${post.id}: Failed`);
+      } else {
+        const vibeStr = result.vibe_tags.length > 0 ? ` [${result.vibe_tags.join(", ")}]` : "";
+        tierCounts[result.tier] = (tierCounts[result.tier] || 0) + 1;
+
+        if (flags.dryRun) {
+          console.log(`  ${label} [dry] ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${hasScreenshot ? " 📸" : "   "}${vibeStr} | ${post.title.substring(0, 50)}`);
+        } else {
+          saveResult(post.id, result, post.pick_reason);
+          console.log(`  ${label} ✓ ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${hasScreenshot ? " 📸" : "   "}${vibeStr} | ${post.title.substring(0, 50)}`);
+        }
+        processed++;
+      }
+
+      // Rate limit
+      if (i < posts.length - 1) {
+        await new Promise((r) => setTimeout(r, RATE_DELAY));
+      }
+    }
+  } else {
+    // Batch mode: multiple posts per call, text only
+    const batches = Math.ceil(posts.length / flags.batchSize);
+    console.log(`[rescore] Batch mode: ${posts.length} posts, batch size ${flags.batchSize} → ${batches} API calls`);
+    if (flags.dryRun) console.log("[rescore] DRY RUN — no writes");
+
+    for (let b = 0; b < batches; b++) {
+      const batch = posts.slice(b * flags.batchSize, (b + 1) * flags.batchSize);
+      const batchLabel = `[${b + 1}/${batches}]`;
+
+      const results = await rescoreBatch(batch);
+
+      if (results.length === 0) {
+        errors += batch.length;
+        console.log(`  ${batchLabel} ✗ Entire batch failed`);
         continue;
       }
 
-      const pickScore = tierToPickScore(result.tier);
-      const vibeStr = result.vibe_tags.length > 0 ? ` [${result.vibe_tags.join(", ")}]` : "";
-      tierCounts[result.tier] = (tierCounts[result.tier] || 0) + 1;
+      const resultMap = new Map(results.map((r) => [r.id, r]));
 
-      if (flags.dryRun) {
-        console.log(`  ${batchLabel} [dry] ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${vibeStr} | ${post.title.substring(0, 50)}`);
-      } else {
-        db.update(schema.aiAnalysis)
-          .set({
-            tier: result.tier,
-            vibeTags: JSON.stringify(result.vibe_tags),
-            pickReason: result.highlight || post.pick_reason || "",
-            pickScore,
-            analyzedAt: Math.floor(Date.now() / 1000),
-            model: process.env.ANALYSIS_MODEL || "gpt-5-mini",
-          })
-          .where(eq(schema.aiAnalysis.postId, post.id))
-          .run();
-        console.log(`  ${batchLabel} ✓ ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${vibeStr} | ${post.title.substring(0, 50)}`);
+      for (const post of batch) {
+        const result = resultMap.get(post.id);
+        if (!result) {
+          errors++;
+          console.log(`  ${batchLabel} ✗ ${post.id}: Missing from response`);
+          continue;
+        }
+
+        const vibeStr = result.vibe_tags.length > 0 ? ` [${result.vibe_tags.join(", ")}]` : "";
+        tierCounts[result.tier] = (tierCounts[result.tier] || 0) + 1;
+
+        if (flags.dryRun) {
+          console.log(`  ${batchLabel} [dry] ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${vibeStr} | ${post.title.substring(0, 50)}`);
+        } else {
+          saveResult(post.id, result, post.pick_reason);
+          console.log(`  ${batchLabel} ✓ ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${vibeStr} | ${post.title.substring(0, 50)}`);
+        }
+        processed++;
       }
-      processed++;
-    }
 
-    // Rate limit between batches
-    if (b < batches - 1) {
-      await new Promise((r) => setTimeout(r, RATE_DELAY));
+      // Rate limit between batches
+      if (b < batches - 1) {
+        await new Promise((r) => setTimeout(r, RATE_DELAY));
+      }
     }
   }
 

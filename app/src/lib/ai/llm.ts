@@ -84,9 +84,9 @@ const CATEGORIES = [
   "Other",
 ];
 
-function buildPrompt(title: string, url: string | null, pageContent: string, storyText: string | null, readmeContent?: string): string {
+function buildPrompt(title: string, url: string | null, pageContent: string, storyText: string | null, readmeContent?: string, hasScreenshot?: boolean): string {
   return `You're a sharp, opinionated tech writer reviewing Show HN projects. Analyze this project and return a JSON object.
-
+${hasScreenshot ? "\nA screenshot of the project's landing page is attached. Use it to judge design quality, UI polish, and visual appeal. This is a major input for your tier and vibe_tags assessment.\n" : ""}
 Title: ${title}
 URL: ${url || "N/A (text-only post)"}
 ${storyText ? `Author's description: ${storyText.replace(/<[^>]*>/g, " ").slice(0, 1000)}` : ""}
@@ -143,23 +143,44 @@ Don't penalize good enterprise/infra projects — a well-executed database tool 
 Be concise. Return ONLY valid JSON, no markdown fencing.`;
 }
 
-async function callOpenAI(prompt: string, model: string): Promise<string> {
+async function callOpenAI(prompt: string, model: string, screenshotBase64?: string): Promise<string> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  // Build message content — text-only or text+image
+  const content: OpenAI.ChatCompletionContentPart[] = [];
+  if (screenshotBase64) {
+    content.push({
+      type: "image_url",
+      image_url: { url: `data:image/webp;base64,${screenshotBase64}`, detail: "low" },
+    });
+  }
+  content.push({ type: "text", text: prompt });
+
   const response = await client.chat.completions.create({
     model,
-    messages: [{ role: "user", content: prompt }],
+    messages: [{ role: "user", content }],
     max_completion_tokens: 1000,
     response_format: { type: "json_object" },
   });
   return response.choices[0]?.message?.content || "";
 }
 
-async function callAnthropic(prompt: string, model: string): Promise<string> {
+async function callAnthropic(prompt: string, model: string, screenshotBase64?: string): Promise<string> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const content: Anthropic.ContentBlockParam[] = [];
+  if (screenshotBase64) {
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type: "image/webp", data: screenshotBase64 },
+    });
+  }
+  content.push({ type: "text", text: prompt });
+
   const response = await client.messages.create({
     model,
     max_tokens: 700,
-    messages: [{ role: "user", content: prompt }],
+    messages: [{ role: "user", content }],
   });
   const block = response.content[0];
   return block.type === "text" ? block.text : "";
@@ -249,17 +270,18 @@ export async function analyzePost(
   url: string | null,
   pageContent: string,
   storyText: string | null,
-  readmeContent?: string
+  readmeContent?: string,
+  screenshotBase64?: string
 ): Promise<{ result: AnalysisResult; model: string }> {
   const provider = process.env.ANALYSIS_PROVIDER || "openai";
   const model = process.env.ANALYSIS_MODEL || "gpt-5-mini";
-  const prompt = buildPrompt(title, url, pageContent, storyText, readmeContent);
+  const prompt = buildPrompt(title, url, pageContent, storyText, readmeContent, !!screenshotBase64);
 
   let raw: string;
   if (provider === "anthropic") {
-    raw = await callAnthropic(prompt, model);
+    raw = await callAnthropic(prompt, model, screenshotBase64);
   } else {
-    raw = await callOpenAI(prompt, model);
+    raw = await callOpenAI(prompt, model, screenshotBase64);
   }
 
   const result = parseResult(raw);

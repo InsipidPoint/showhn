@@ -285,12 +285,21 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
       }
     }
 
+    // Load existing screenshot from disk for vision analysis
+    let screenshotBase64: string | undefined;
+    const screenshotPath = path.join(SCREENSHOT_DIR, `${post.id}.webp`);
+    if (fs.existsSync(screenshotPath)) {
+      screenshotBase64 = fs.readFileSync(screenshotPath).toString("base64");
+      console.log(`  [analyze] Loaded screenshot for vision (${post.id})`);
+    }
+
     const { result, model } = await analyzePost(
       post.title,
       post.url,
       pageContent,
       post.storyText,
-      readmeContent
+      readmeContent,
+      screenshotBase64
     );
 
     const pickScore = tierToPickScore(result.tier);
@@ -474,10 +483,16 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
     }
   }
 
-  // Step 3: Run AI analysis
+  // Step 3: Run AI analysis (with screenshot vision if available)
   try {
     if (!pageText && !post.storyText && !readmeContent) {
       pageText = post.title; // fallback
+    }
+
+    // Load screenshot from disk for vision analysis
+    let screenshotBase64: string | undefined;
+    if (screenshotSuccess && fs.existsSync(screenshotPath)) {
+      screenshotBase64 = fs.readFileSync(screenshotPath).toString("base64");
     }
 
     const { result, model } = await analyzePost(
@@ -485,7 +500,8 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
       post.url,
       pageText,
       post.storyText,
-      readmeContent || undefined
+      readmeContent || undefined,
+      screenshotBase64
     );
 
     const pickScore = tierToPickScore(result.tier);
