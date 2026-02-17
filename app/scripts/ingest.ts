@@ -9,6 +9,7 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import * as schema from "../src/lib/db/schema";
+import { enqueuePostTasks } from "../src/lib/queue";
 import path from "path";
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "showhn.db");
@@ -70,6 +71,7 @@ function upsertPost(hit: AlgoliaHit) {
       .where(eq(schema.posts.id, id))
       .run();
   } else {
+    const hasUrl = !!hit.url;
     db.insert(schema.posts)
       .values({
         id,
@@ -81,11 +83,14 @@ function upsertPost(hit: AlgoliaHit) {
         createdAt: hit.created_at_i,
         storyText: hit.story_text || null,
         hasScreenshot: 0,
-        status: hit.url ? "active" : "no_url",
+        status: hasUrl ? "active" : "no_url",
         fetchedAt: now,
         updatedAt: now,
       })
       .run();
+
+    // Enqueue screenshot + analysis tasks for the worker to pick up
+    enqueuePostTasks(db, id, hasUrl);
   }
 
   return !existing;
