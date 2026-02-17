@@ -47,7 +47,7 @@ export default function AboutPage() {
           </a>{" "}
           in{" "}
           <a
-            href="https://news.ycombinator.com/item?id=2843352"
+            href="https://news.ycombinator.com/item?id=2843490"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline"
@@ -61,7 +61,7 @@ export default function AboutPage() {
         <p className="text-muted-foreground leading-relaxed">
           The{" "}
           <a
-            href="https://news.ycombinator.com/item?id=4055498"
+            href="https://news.ycombinator.com/item?id=4053755"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline"
@@ -70,7 +70,7 @@ export default function AboutPage() {
           </a>{" "}
           (158 points). In 2012 I shipped a{" "}
           <a
-            href="https://news.ycombinator.com/item?id=4532882"
+            href="https://news.ycombinator.com/item?id=4533254"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline"
