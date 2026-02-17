@@ -55,29 +55,73 @@ async function fetchPage(page: number, startTimestamp?: number): Promise<Algolia
   return res.json();
 }
 
+/**
+ * Extract the first http(s) URL from HN story_text (which uses <p>, <a> tags
+ * and HTML entities like &#x2F; for /). Skips HN internal links.
+ */
+function extractUrlFromText(storyText: string | null): string | null {
+  if (!storyText) return null;
+  // Decode HTML entities first
+  const decoded = storyText
+    .replace(/&#x2F;/gi, "/")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"');
+  // Extract href values first (most reliable), then fall back to bare URLs
+  const hrefRegex = /href="(https?:\/\/[^"]+)"/gi;
+  let match;
+  while ((match = hrefRegex.exec(decoded)) !== null) {
+    const url = match[1].replace(/[.,;:)\]]+$/, "");
+    if (!url.includes("news.ycombinator.com")) return url;
+  }
+  // Fallback: bare URLs
+  const urlRegex = /https?:\/\/[^\s<>"]+/gi;
+  const matches = decoded.match(urlRegex);
+  if (!matches) return null;
+  for (const url of matches) {
+    if (url.includes("news.ycombinator.com")) continue;
+    return url.replace(/[.,;:)\]]+$/, "");
+  }
+  return null;
+}
+
 function upsertPost(hit: AlgoliaHit) {
   const now = Math.floor(Date.now() / 1000);
   const id = parseInt(hit.objectID, 10);
 
+  // If no URL field, try to extract from story_text
+  const resolvedUrl = hit.url || extractUrlFromText(hit.story_text);
+
   const existing = db.select().from(schema.posts).where(eq(schema.posts.id, id)).get();
 
   if (existing) {
-    // Update points/comments only
+    // Update points/comments; also fill in URL if we found one and it was missing
+    const updates: Record<string, unknown> = {
+      points: hit.points,
+      comments: hit.num_comments,
+      updatedAt: now,
+    };
+    if (!existing.url && resolvedUrl) {
+      updates.url = resolvedUrl;
+      updates.status = "active";
+    }
     db.update(schema.posts)
-      .set({
-        points: hit.points,
-        comments: hit.num_comments,
-        updatedAt: now,
-      })
+      .set(updates)
       .where(eq(schema.posts.id, id))
       .run();
+    // If we just resolved a URL for a previously no_url post, enqueue tasks
+    if (!existing.url && resolvedUrl) {
+      enqueuePostTasks(db, id, true, 5);
+    }
   } else {
-    const hasUrl = !!hit.url;
+    const hasUrl = !!resolvedUrl;
     db.insert(schema.posts)
       .values({
         id,
         title: hit.title,
-        url: hit.url || null,
+        url: resolvedUrl || null,
         author: hit.author,
         points: hit.points,
         comments: hit.num_comments,
