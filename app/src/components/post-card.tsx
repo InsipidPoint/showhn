@@ -125,17 +125,17 @@ export function PostCard({
           </h3>
 
           {analysis?.pickReason && analysis.pickReason !== "Nothing stands out" && (analysis.pickScore ?? 0) >= 50 ? (
-            <p className="text-xs text-muted-foreground line-clamp-2 mb-2.5 leading-relaxed italic">
+            <p className="text-xs text-muted-foreground line-clamp-3 mb-2.5 leading-relaxed italic">
               {analysis.pickReason}
             </p>
           ) : analysis?.summary ? (
-            <p className="text-xs text-muted-foreground line-clamp-2 mb-2.5 leading-relaxed">
+            <p className="text-xs text-muted-foreground line-clamp-3 mb-2.5 leading-relaxed">
               {analysis.summary}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground line-clamp-2 mb-2.5 leading-relaxed">
+            <p className="text-xs text-muted-foreground line-clamp-3 mb-2.5 leading-relaxed">
               {post.storyText
-                ? post.storyText.replace(/<[^>]*>/g, "").slice(0, 120)
+                ? post.storyText.replace(/<[^>]*>/g, "").slice(0, 160)
                 : "\u00A0"}
             </p>
           )}
