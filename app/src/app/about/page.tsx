@@ -123,8 +123,8 @@ export default function AboutPage() {
           />
           <FeatureCard
             icon="🤖"
-            title="AI Pick Score"
-            description="AI judges each project on novelty, craft, and appeal — surfacing the most interesting ones. The daily digest highlights top picks."
+            title="AI Tier Ratings"
+            description="AI classifies each project with a tier (Gem → Pass), playful vibe tags, and an editorial mini-review. The daily digest highlights top picks."
           />
           <FeatureCard
             icon="📰"
@@ -159,42 +159,49 @@ export default function AboutPage() {
           How AI Picks Work
         </h2>
         <p className="text-muted-foreground leading-relaxed">
-          Every Show HN post gets judged by AI across three dimensions
-          that were themselves largely defined by AI — I gave it the goal
-          of surfacing interesting projects and let it figure out what to
-          measure:
+          Every Show HN post gets judged by AI — it looks at the project&apos;s
+          description, tech stack, and a screenshot of the landing page to
+          classify each project into a tier and write a short editorial take.
         </p>
-        <ul className="space-y-2 text-muted-foreground">
-          <li className="flex gap-3">
-            <span className="font-mono text-sm text-primary mt-0.5">NEW</span>
-            <span>
-              <strong className="text-foreground">Novelty</strong> — How fresh
-              or surprising is this? A chess engine in 2KB scores higher than
-              &quot;yet another dashboard builder.&quot;
-            </span>
-          </li>
-          <li className="flex gap-3">
-            <span className="font-mono text-sm text-primary mt-0.5">CRA</span>
-            <span>
-              <strong className="text-foreground">Craft</strong> — How
-              impressive is the execution? Rewards both elegant small projects
-              and ambitious large systems.
-            </span>
-          </li>
-          <li className="flex gap-3">
-            <span className="font-mono text-sm text-primary mt-0.5">WOW</span>
-            <span>
-              <strong className="text-foreground">Appeal</strong> — Would
-              someone be excited to discover this? Captures both practical
-              utility and delight.
-            </span>
-          </li>
-        </ul>
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-foreground">Tiers</h3>
+          <ul className="space-y-2 text-muted-foreground">
+            <li className="flex gap-3">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200">Gem</span>
+              <span>Exceptional — you&apos;d mass-share this link. (~5% of projects)</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">Banger</span>
+              <span>Really compelling, clear &quot;oh that&apos;s cool&quot; moment. (~15%)</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">Solid</span>
+              <span>Good work, interesting to its niche. (~40%)</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">Mid</span>
+              <span>Nothing special stands out. (~30%)</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-50 text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400">Pass</span>
+              <span>Generic, broken, or no substance. (~10%)</span>
+            </li>
+          </ul>
+        </div>
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-foreground">Vibe Tags</h3>
+          <p className="text-muted-foreground leading-relaxed">
+            Each project also gets 1–3 playful vibe tags that describe
+            <em> what kind</em> of interesting it is — things like
+            &quot;Rabbit Hole,&quot; &quot;Eye Candy,&quot; &quot;Wizardry,&quot;
+            &quot;Dark Horse,&quot; or &quot;Solve My Problem.&quot;
+          </p>
+        </div>
         <p className="text-muted-foreground leading-relaxed">
-          These combine into a composite Pick Score (55–100). The scoring is
-          intentionally encouraging — no project gets buried. The
-          differentiation happens at the top, where truly exceptional work
-          stands out.
+          The star of each card is the AI&apos;s editorial highlight — a 2–3 sentence
+          mini-review that tells you what&apos;s actually interesting (or honestly,
+          what isn&apos;t). No generic praise, no empty scores — just a quick take
+          you can scan and decide if it&apos;s worth clicking.
         </p>
       </section>
 

@@ -3,6 +3,17 @@ import { triggerRefreshIfStale } from "@/lib/refresh";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TIERS, TIER_LABELS, type Tier } from "@/lib/ai/llm";
+
+function safeParseTier(value: string | null | undefined): Tier | null {
+  if (!value) return null;
+  return (TIERS as readonly string[]).includes(value) ? (value as Tier) : null;
+}
+
+function safeParseJsonArray(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try { return JSON.parse(json); } catch { return []; }
+}
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -55,8 +66,48 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+// Tier badge styling
+const tierBadgeStyles: Record<string, string> = {
+  gem: "bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900/50 dark:text-violet-200 dark:border-violet-700",
+  banger: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-200 dark:border-amber-700",
+  solid: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-200 dark:border-emerald-700",
+  mid: "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-600",
+  pass: "bg-zinc-50 text-zinc-500 border-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700",
+};
+
+const tierDescriptions: Record<string, string> = {
+  gem: "Exceptional project — must see",
+  banger: "Really compelling — worth your time",
+  solid: "Good work — interesting to its niche",
+  mid: "Nothing special stands out",
+  pass: "Not much to see here",
+};
+
+// Vibe tag colors — same as post-card for consistency
+const vibeTagColors = [
+  "bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-900/40 dark:text-pink-300 dark:border-pink-700",
+  "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900/40 dark:text-sky-300 dark:border-sky-700",
+  "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700",
+  "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700",
+  "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700",
+  "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-700",
+];
+
+function vibeTagColor(tag: string): string {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = ((hash << 5) - hash + tag.charCodeAt(i)) | 0;
+  return vibeTagColors[Math.abs(hash) % vibeTagColors.length];
+}
+
+const vibeLabels: Record<number, string> = {
+  1: "Weekend hack",
+  2: "Side project",
+  3: "Solid tool",
+  4: "Polished product",
+  5: "Serious startup",
+};
+
 function ScoreBar({ score, max, label }: { score: number; max: number; label?: string }) {
-  // Color based on relative position in range
   const ratio = score / max;
   const color =
     ratio <= 0.2 ? "bg-red-400 dark:bg-red-500" :
@@ -85,14 +136,6 @@ function ScoreBar({ score, max, label }: { score: number; max: number; label?: s
   );
 }
 
-const vibeLabels: Record<number, string> = {
-  1: "Weekend hack",
-  2: "Side project",
-  3: "Solid tool",
-  4: "Polished product",
-  5: "Serious startup",
-};
-
 const sentimentColors: Record<string, string> = {
   positive: "text-emerald-600 dark:text-emerald-400",
   negative: "text-red-600 dark:text-red-400",
@@ -113,12 +156,10 @@ export default async function PostPage({ params }: Props) {
     month: "short",
     day: "numeric",
   });
-  const techStack: string[] = post.analysis?.techStack
-    ? JSON.parse(post.analysis.techStack)
-    : [];
-  const tags: string[] = post.analysis?.tags
-    ? JSON.parse(post.analysis.tags)
-    : [];
+  const techStack: string[] = safeParseJsonArray(post.analysis?.techStack);
+  const tags: string[] = safeParseJsonArray(post.analysis?.tags);
+  const vibeTags: string[] = safeParseJsonArray(post.analysis?.vibeTags);
+  const tier = safeParseTier(post.analysis?.tier);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -191,25 +232,34 @@ export default async function PostPage({ params }: Props) {
             </h2>
           </div>
           <div className="p-6 space-y-5">
-            {post.analysis.pickScore != null && (
-              <div className="flex items-center gap-3">
-                <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 ${
-                  post.analysis.pickScore >= 80 ? "border-green-500 dark:border-green-400" :
-                  post.analysis.pickScore >= 72 ? "border-emerald-400 dark:border-emerald-500" :
-                  post.analysis.pickScore >= 65 ? "border-yellow-400 dark:border-yellow-500" :
-                  "border-orange-400 dark:border-orange-500"
-                }`}>
-                  <span className={`text-lg font-bold ${
-                    post.analysis.pickScore >= 80 ? "text-green-600 dark:text-green-400" :
-                    post.analysis.pickScore >= 72 ? "text-emerald-600 dark:text-emerald-400" :
-                    post.analysis.pickScore >= 65 ? "text-yellow-600 dark:text-yellow-400" :
-                    "text-orange-600 dark:text-orange-400"
-                  }`}>{post.analysis.pickScore}</span>
-                </div>
-                <div>
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Pick Score</span>
-                  <p className="text-sm text-muted-foreground">Composite of novelty, craft, and appeal</p>
-                </div>
+            {/* Tier + Vibe Tags */}
+            {(tier || vibeTags.length > 0) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {tier && (
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border ${tierBadgeStyles[tier] || tierBadgeStyles.mid}`}>
+                    {TIER_LABELS[tier] || tier}
+                  </span>
+                )}
+                {vibeTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${vibeTagColor(tag)}`}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {tier && tierDescriptions[tier] && (
+              <p className="text-xs text-muted-foreground -mt-2">{tierDescriptions[tier]}</p>
+            )}
+
+            {/* Highlight — the editorial take */}
+            {post.analysis.pickReason && post.analysis.pickReason !== "Nothing stands out" && (
+              <div>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">The Take</span>
+                <p className="mt-1 leading-relaxed">{post.analysis.pickReason}</p>
               </div>
             )}
 
@@ -246,33 +296,6 @@ export default async function PostPage({ params }: Props) {
                 </div>
               )}
 
-              {post.analysis.noveltyScore && (
-                <div>
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Novelty</span>
-                  <div className="mt-1.5">
-                    <ScoreBar score={post.analysis.noveltyScore} max={10} />
-                  </div>
-                </div>
-              )}
-
-              {post.analysis.ambitionScore && (
-                <div>
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Craft</span>
-                  <div className="mt-1.5">
-                    <ScoreBar score={post.analysis.ambitionScore} max={10} />
-                  </div>
-                </div>
-              )}
-
-              {post.analysis.usefulnessScore && (
-                <div>
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Appeal</span>
-                  <div className="mt-1.5">
-                    <ScoreBar score={post.analysis.usefulnessScore} max={10} />
-                  </div>
-                </div>
-              )}
-
               {post.analysis.commentSentiment && (
                 <div>
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">HN Sentiment</span>
@@ -302,13 +325,6 @@ export default async function PostPage({ params }: Props) {
                     <Badge key={tag} variant="outline">{tag}</Badge>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {post.analysis.pickReason && post.analysis.pickReason !== "Nothing stands out" && (
-              <div className="border-t border-border pt-4">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Why It Stands Out</span>
-                <p className="mt-1 text-sm leading-relaxed italic">{post.analysis.pickReason}</p>
               </div>
             )}
           </div>

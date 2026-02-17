@@ -1,23 +1,68 @@
 /**
  * Configurable LLM client — supports OpenAI and Anthropic.
  * Controlled via ANALYSIS_PROVIDER and ANALYSIS_MODEL env vars.
+ *
+ * Rating system: tier classification + playful vibe tags + editorial highlight.
+ * No numeric sub-scores shown to users — the written highlight is the star.
  */
 
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+
+export const TIERS = ["gem", "banger", "solid", "mid", "pass"] as const;
+export type Tier = (typeof TIERS)[number];
+
+export const TIER_LABELS: Record<Tier, string> = {
+  gem: "Gem",
+  banger: "Banger",
+  solid: "Solid",
+  mid: "Mid",
+  pass: "Pass",
+};
+
+/** Fixed pick_score per tier — used for DB sorting only */
+const TIER_SCORES: Record<Tier, number> = {
+  gem: 95,
+  banger: 80,
+  solid: 65,
+  mid: 50,
+  pass: 35,
+};
+
+export const VIBE_TAGS = [
+  "Rabbit Hole",
+  "Dark Horse",
+  "Eye Candy",
+  "Wizardry",
+  "Big Brain",
+  "Crowd Pleaser",
+  "Niche Gem",
+  "Bold Bet",
+  "Ship It",
+  "Zero to One",
+  "Cozy",
+  "Slick",
+  "Solve My Problem",
+] as const;
+
+export type VibeTag = (typeof VIBE_TAGS)[number];
 
 export type AnalysisResult = {
   summary: string;
   category: string;
   tech_stack: string[];
   target_audience: string;
+  tier: Tier;
+  vibe_tags: string[];
+  highlight: string;
+  tags: string[];
+  // Legacy fields — kept for backward compat / DB columns
   vibe_score: number;
   interest_score: number;
   novelty_score: number;
-  ambition_score: number;   // mapped from craft_score
-  usefulness_score: number; // mapped from appeal_score
+  ambition_score: number;
+  usefulness_score: number;
   pick_reason: string;
-  tags: string[];
 };
 
 const CATEGORIES = [
@@ -39,9 +84,9 @@ const CATEGORIES = [
   "Other",
 ];
 
-function buildPrompt(title: string, url: string | null, pageContent: string, storyText: string | null, readmeContent?: string): string {
-  return `Analyze this Show HN project and return a JSON object.
-
+function buildPrompt(title: string, url: string | null, pageContent: string, storyText: string | null, readmeContent?: string, hasScreenshot?: boolean): string {
+  return `You're a sharp, opinionated tech writer reviewing Show HN projects. Analyze this project and return a JSON object.
+${hasScreenshot ? "\nA screenshot of the project's landing page is attached. Use it to judge design quality, UI polish, and visual appeal. This is a major input for your tier and vibe_tags assessment.\n" : ""}
 Title: ${title}
 URL: ${url || "N/A (text-only post)"}
 ${storyText ? `Author's description: ${storyText.replace(/<[^>]*>/g, " ").slice(0, 1000)}` : ""}
@@ -54,78 +99,88 @@ Return ONLY a JSON object with these fields:
 {
   "summary": "One sentence: what it does and who it's for",
   "category": "One of: ${CATEGORIES.join(", ")}",
-  "tech_stack": ["Array of detected technologies, frameworks, languages"],
+  "tech_stack": ["detected technologies, frameworks, languages"],
   "target_audience": "Who would use this (e.g. 'Backend developers', 'Small business owners')",
-  "vibe_score": 1-5 (1=weekend hack, 2=side project, 3=solid tool, 4=polished product, 5=serious startup),
-  "novelty_score": 1-10 (How fresh or surprising is this?),
-  "craft_score": 1-10 (How impressive is the execution?),
-  "appeal_score": 1-10 (Would someone be excited to discover this?),
-  "pick_reason": "One sentence explaining what makes this project noteworthy, or 'Nothing stands out' if generic",
+  "tier": "gem | banger | solid | mid | pass",
+  "vibe_tags": ["1-3 tags from the allowed list below"],
+  "highlight": "2-3 sentences: your editorial take on this project. What's interesting, what's clever, what's the vibe? Write like you're telling a friend about it. Be specific — mention actual features or techniques, not generic praise.",
   "tags": ["3-5 descriptive tags beyond the category"]
 }
 
-SCORING GUIDE — use the FULL 1-10 range with this target distribution per dimension:
-  1-2: ~10% of projects (truly weak/generic)
-  3-4: ~25% (below average)
-  5-6: ~30% (average/decent)
-  7-8: ~25% (strong/impressive)
-  9-10: ~10% (exceptional/best-in-class)
+TIER GUIDE — classify the project into exactly one tier:
+  gem    (~5% of projects): Exceptional. You'd mass-share this link. Genuinely novel idea OR masterful execution OR instant viral appeal. The kind of project that makes HN great.
+  banger (~15%): Really compelling. Has a clear "oh that's cool" moment. Strong execution on an interesting idea, or fills a real gap impressively.
+  solid  (~40%): Good work. Competent project that does what it says. Interesting to its niche, decent execution, reasonable idea.
+  mid    (~30%): Nothing special. Works but doesn't excite. Derivative idea with unremarkable execution. You wouldn't share the link.
+  pass   (~10%): Generic/broken/no substance. Yet another AI wrapper, empty landing page, tutorial-level clone.
 
-⚠️ THE #1 MISTAKE: Clustering everything at 4-6. BE BOLD. A generic AI chatbot wrapper is a 2, not a 4. A playable synthesizer in the browser is an 8-9, not a 7. Differentiate aggressively.
+VIBE TAGS — pick 1-3 that genuinely fit from this list (don't force them):
+  "Rabbit Hole"      — You'll lose hours exploring this
+  "Dark Horse"       — Surprisingly good, flies under the radar
+  "Eye Candy"        — Beautiful design or visual experience
+  "Wizardry"         — Impressive technical feat, "how did they do that?"
+  "Big Brain"        — Clever, non-obvious approach to the problem
+  "Crowd Pleaser"    — Broad appeal, everyone will want to try it
+  "Niche Gem"        — Perfect for its specific audience
+  "Bold Bet"         — Ambitious swing, respect the attempt
+  "Ship It"          — MVP energy, early but promising
+  "Zero to One"      — Genuinely new thing, didn't exist before
+  "Cozy"             — Small, delightful, well-crafted
+  "Slick"            — Polished, feels like a real product
+  "Solve My Problem" — Immediately useful, fills a real gap
 
-NOVELTY — "Have I seen this before?"
-  9-10: Fundamentally new concept. Nothing like it exists. Changes how you think about the problem space.
-  7-8: Chess engine in 2KB. Visualizing transformer internals in-browser. Real-time bot attack visualization. Genuinely surprising approach.
-  5-6: Interesting twist on existing concept. Combines known ideas in a fresh way.
-  3-4: Derivative but with a minor differentiator. Somewhat predictable execution of a known idea.
-  1-2: Another todo app. "X but in Rust/Go." Yet another AI wrapper, CRM, dashboard, landing page builder, or clone with zero innovation.
+HIGHLIGHT GUIDE — this is the most important field. Write 2-3 sentences like a mini-review:
+  Good: "This turns your terminal into a full synthesizer using Web MIDI — you can actually play chords with your keyboard. The latency is impressively low for a browser-based tool. The kind of project you open meaning to glance at and then lose 30 minutes to."
+  Good: "A dead-simple CLI that finds unused CSS across your codebase. Not flashy, but this solves a genuine pain point that existing tools handle poorly. The zero-config approach is smart."
+  Bad: "An interesting project with good execution and some novel ideas." (too generic, says nothing)
+  Bad: "This is a really cool tool." (empty praise)
 
-CRAFT — "How impressive is the execution?"
-  Rewards BOTH elegant small projects AND ambitious large ones. Quality of engineering, not just scope.
-  9-10: Masterful engineering. 2KB chess engine. Novel compiler. Systems that shouldn't be possible in this stack.
-  7-8: Deep systems work (Snowflake emulator in Rust). Polished UI with thoughtful UX. Production-grade distributed systems.
-  5-6: Well-structured, works as described, competent engineering. Standard stack used effectively.
-  3-4: Works but rough edges. Copy-paste architecture. Limited error handling. Bare minimum effort.
-  1-2: Minimal API wrapper. Tutorial-level code. Broken or barely functional demo. README-only with no working product.
+For mid/pass tier projects, the highlight should honestly say why it doesn't stand out:
+  Good: "Another project management board, but this one doesn't bring anything new to the Trello/Linear/Notion landscape. The UI is clean enough but there's no clear reason to switch."
 
-APPEAL — "Would someone be excited to discover this?"
-  Captures BOTH practical value AND delight/fun/coolness. "If I shared this link, would someone say 'oh cool' and actually click it?"
-  9-10: Instant viral appeal. Everyone wants to try it right now. Moog synthesizer playable in browser.
-  7-8: SQL traffic viewer devs immediately want. Self-hosted Firebase alternative filling a real gap. Interactive data viz revealing something surprising.
-  5-6: Useful for a niche. Decent developer tool with existing alternatives.
-  3-4: Might be useful to someone but hard to get excited about. Requires significant context to appreciate.
-  1-2: Generic SaaS with no demo. Dry enterprise pitch with buzzword README. "AI governance framework" that reads like a corporate deck.
-
-IMPORTANT: Don't penalize good enterprise/infra projects — a well-executed DB tool solving real pain is a 7-8 on Appeal ("I need this!") even if it's not "fun."
-
-Score each dimension INDEPENDENTLY. A project can be high novelty but low craft, or low novelty but high appeal.
-
-CALIBRATION REFERENCES — use these as anchors:
-• LOW (~59): "PythonICO – Simple SVG Badges for PyPI Stats" → N:2 C:2 A:2. Generic utility, nothing novel, minimal craft, no excitement.
-• MID (~76): "Kaneo – a project management tool which is not complicated" → N:4 C:6 A:6. Competent OSS tool, decent execution, useful but not surprising.
-• HIGH (~92): "Emergent Field Explorer – interactive moiré with easy shareable URLs" → N:6 C:9 A:9. Interactive browser art, masterful execution, instant delight.
-Score the new project relative to these anchors.
+Don't penalize good enterprise/infra projects — a well-executed database tool solving real pain is a banger even if it's not "fun."
 
 Be concise. Return ONLY valid JSON, no markdown fencing.`;
 }
 
-async function callOpenAI(prompt: string, model: string): Promise<string> {
+async function callOpenAI(prompt: string, model: string, screenshotBase64?: string): Promise<string> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  // Build message content — text-only or text+image
+  const content: OpenAI.ChatCompletionContentPart[] = [];
+  if (screenshotBase64) {
+    content.push({
+      type: "image_url",
+      image_url: { url: `data:image/webp;base64,${screenshotBase64}`, detail: "auto" },
+    });
+  }
+  content.push({ type: "text", text: prompt });
+
   const response = await client.chat.completions.create({
     model,
-    messages: [{ role: "user", content: prompt }],
+    messages: [{ role: "user", content }],
     max_completion_tokens: 1000,
     response_format: { type: "json_object" },
   });
   return response.choices[0]?.message?.content || "";
 }
 
-async function callAnthropic(prompt: string, model: string): Promise<string> {
+async function callAnthropic(prompt: string, model: string, screenshotBase64?: string): Promise<string> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const content: Anthropic.ContentBlockParam[] = [];
+  if (screenshotBase64) {
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type: "image/webp", data: screenshotBase64 },
+    });
+  }
+  content.push({ type: "text", text: prompt });
+
   const response = await client.messages.create({
     model,
-    max_tokens: 500,
-    messages: [{ role: "user", content: prompt }],
+    max_tokens: 1000,
+    messages: [{ role: "user", content }],
   });
   const block = response.content[0];
   return block.type === "text" ? block.text : "";
@@ -135,45 +190,40 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
-/**
- * Compute a 55-100 composite pick score from the three AI sub-scores (each 1-10).
- * 
- * Piecewise linear mapping that stretches the crowded middle range:
- *   raw 1-3  → 55-62   (weak projects, compressed — few posts here)
- *   raw 3-5  → 62-74   (below average, decent spread)
- *   raw 5-7  → 74-88   (average-to-good, widest spread where most posts cluster)
- *   raw 7-10 → 88-100  (top tier, earned territory)
- *
- * Dimensions: Novelty (how fresh), Craft (how well-built), Appeal (how exciting to discover).
- * DB columns: novelty_score, ambition_score (=craft), usefulness_score (=appeal).
- */
-export function computePickScore(novelty: number, usefulness: number, ambition: number): number {
-  //Args: novelty, appeal (usefulness col), craft (ambition col)
-  const raw = novelty * 0.35 + usefulness * 0.35 + ambition * 0.30;
-  let score: number;
-  if (raw <= 3) {
-    score = 55 + (raw - 1) * 3.5;    // 1→55, 3→62
-  } else if (raw <= 5) {
-    score = 62 + (raw - 3) * 6;      // 3→62, 5→74
-  } else if (raw <= 7) {
-    score = 74 + (raw - 5) * 7;      // 5→74, 7→88
-  } else {
-    score = 88 + (raw - 7) * 4;      // 7→88, 10→100
-  }
-  return Math.round(Math.min(100, Math.max(55, score)));
+/** Convert tier to numeric pick_score for DB sorting */
+export function tierToPickScore(tier: Tier): number {
+  return TIER_SCORES[tier] ?? 50;
+}
+
+export function parseTier(value: unknown): Tier {
+  const s = String(value || "").toLowerCase().trim();
+  if (TIERS.includes(s as Tier)) return s as Tier;
+  return "mid";
+}
+
+export function parseVibeTags(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const validTags = new Set<string>(VIBE_TAGS as unknown as string[]);
+  return value
+    .map(String)
+    .filter((t) => validTags.has(t))
+    .slice(0, 3);
 }
 
 function parseResult(raw: string): AnalysisResult {
-  // Strip markdown fencing if present
   const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/i, "").trim();
   const parsed = JSON.parse(cleaned);
 
-  const novelty_score = clamp(Number(parsed.novelty_score) || 3, 1, 10);
-  // Accept both new (craft/appeal) and legacy (ambition/usefulness) field names
-  const ambition_score = clamp(Number(parsed.craft_score ?? parsed.ambition_score) || 3, 1, 10);
-  const usefulness_score = clamp(Number(parsed.appeal_score ?? parsed.usefulness_score) || 3, 1, 10);
+  const tier = parseTier(parsed.tier);
+  const vibe_tags = parseVibeTags(parsed.vibe_tags);
+  const highlight = String(parsed.highlight || parsed.pick_reason || "");
 
-  // Backward-compatible interest_score derived from average of sub-scores
+  // Legacy sub-scores — derive from tier for backward compat
+  const tierScoreMap: Record<Tier, number> = { gem: 9, banger: 7, solid: 5, mid: 3, pass: 2 };
+  const defaultSubScore = tierScoreMap[tier];
+  const novelty_score = clamp(Number(parsed.novelty_score) || defaultSubScore, 1, 10);
+  const ambition_score = clamp(Number(parsed.craft_score ?? parsed.ambition_score) || defaultSubScore, 1, 10);
+  const usefulness_score = clamp(Number(parsed.appeal_score ?? parsed.usefulness_score) || defaultSubScore, 1, 10);
   const avgScore = (novelty_score + ambition_score + usefulness_score) / 3;
   const interest_score = clamp(Math.round(avgScore / 2), 1, 5);
 
@@ -182,13 +232,17 @@ function parseResult(raw: string): AnalysisResult {
     category: CATEGORIES.includes(parsed.category) ? parsed.category : "Other",
     tech_stack: Array.isArray(parsed.tech_stack) ? parsed.tech_stack.map(String) : [],
     target_audience: String(parsed.target_audience || ""),
+    tier,
+    vibe_tags,
+    highlight,
+    tags: Array.isArray(parsed.tags) ? parsed.tags.map(String).slice(0, 5) : [],
+    // Legacy
     vibe_score: clamp(Number(parsed.vibe_score) || 3, 1, 5),
     interest_score,
     novelty_score,
     ambition_score,
     usefulness_score,
-    pick_reason: String(parsed.pick_reason || ""),
-    tags: Array.isArray(parsed.tags) ? parsed.tags.map(String).slice(0, 5) : [],
+    pick_reason: highlight,
   };
 }
 
@@ -197,17 +251,18 @@ export async function analyzePost(
   url: string | null,
   pageContent: string,
   storyText: string | null,
-  readmeContent?: string
+  readmeContent?: string,
+  screenshotBase64?: string
 ): Promise<{ result: AnalysisResult; model: string }> {
   const provider = process.env.ANALYSIS_PROVIDER || "openai";
   const model = process.env.ANALYSIS_MODEL || "gpt-5-mini";
-  const prompt = buildPrompt(title, url, pageContent, storyText, readmeContent);
+  const prompt = buildPrompt(title, url, pageContent, storyText, readmeContent, !!screenshotBase64);
 
   let raw: string;
   if (provider === "anthropic") {
-    raw = await callAnthropic(prompt, model);
+    raw = await callAnthropic(prompt, model, screenshotBase64);
   } else {
-    raw = await callOpenAI(prompt, model);
+    raw = await callOpenAI(prompt, model, screenshotBase64);
   }
 
   const result = parseResult(raw);

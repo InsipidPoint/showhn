@@ -114,6 +114,7 @@ export async function searchPosts(
               a.novelty_score as a_novelty_score, a.ambition_score as a_ambition_score,
               a.usefulness_score as a_usefulness_score, a.pick_reason as a_pick_reason,
               a.pick_score as a_pick_score,
+              a.tier as a_tier, a.vibe_tags as a_vibe_tags,
               a.analyzed_at as a_analyzed_at, a.model as a_model
        FROM posts_fts fts
        JOIN posts p ON p.id = fts.rowid
@@ -153,6 +154,8 @@ export async function searchPosts(
           usefulnessScore: r.a_usefulness_score,
           pickReason: r.a_pick_reason,
           pickScore: r.a_pick_score,
+          tier: r.a_tier,
+          vibeTags: r.a_vibe_tags,
           analyzedAt: r.a_analyzed_at,
           model: r.a_model,
         }
@@ -186,10 +189,16 @@ export async function getDigest(date?: string): Promise<{
   // Top by points
   const topPosts = [...mapped].sort((a, b) => (b.points ?? 0) - (a.points ?? 0)).slice(0, 10);
 
-  // AI picks (highest pick score)
+  // AI picks — gem and banger tier projects, falling back to high pickScore for legacy posts without tier
   const aiPicks = [...mapped]
-    .filter((p) => p.analysis?.pickScore)
-    .sort((a, b) => (b.analysis?.pickScore || 0) - (a.analysis?.pickScore || 0))
+    .filter((p) => {
+      const tier = p.analysis?.tier;
+      if (tier === "gem" || tier === "banger") return true;
+      // Backward compat: include legacy posts without tier that had high scores
+      if (!tier && (p.analysis?.pickScore ?? 0) >= 80) return true;
+      return false;
+    })
+    .sort((a, b) => (b.analysis?.pickScore || 0) - (a.analysis?.pickScore || 0) || (b.points ?? 0) - (a.points ?? 0))
     .slice(0, 6);
 
   // Category breakdown

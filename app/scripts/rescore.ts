@@ -1,9 +1,13 @@
 /**
  * Batch re-score existing posts using data already in the DB.
- * Sends multiple posts per LLM call for efficiency + better relative calibration.
+ * Sends multiple posts per LLM call for tier classification + vibe tags + highlight.
+ *
+ * With --vision flag, processes one post at a time and sends the screenshot
+ * from disk to the model for visual analysis (no browser needed).
  *
  * Usage:
- *   npx tsx scripts/rescore.ts                  # all posts with existing analysis
+ *   npx tsx scripts/rescore.ts                  # batch mode (text only)
+ *   npx tsx scripts/rescore.ts --vision         # single-post mode with screenshots
  *   npx tsx scripts/rescore.ts --limit 50       # first 50 posts
  *   npx tsx scripts/rescore.ts --batch 15       # 15 posts per API call (default 10)
  *   npx tsx scripts/rescore.ts --post 123 456   # specific post IDs
@@ -15,8 +19,9 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import OpenAI from "openai";
 import * as schema from "../src/lib/db/schema";
-import { computePickScore } from "../src/lib/ai/llm";
+import { analyzePost, tierToPickScore, parseTier, parseVibeTags, TIERS, type Tier } from "../src/lib/ai/llm";
 import path from "path";
+import fs from "fs";
 import dotenv from "dotenv";
 
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
@@ -25,6 +30,12 @@ const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "s
 const sqlite = new Database(DB_PATH);
 sqlite.pragma("journal_mode = WAL");
 const db = drizzle(sqlite, { schema });
+
+const SCREENSHOT_DIR = path.join(process.cwd(), "public", "screenshots");
+
+// Migration: add new columns if missing
+try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN tier TEXT`); } catch { /* exists */ }
+try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN vibe_tags TEXT`); } catch { /* exists */ }
 
 const RATE_DELAY = parseInt(process.env.RESCORE_DELAY || "500", 10);
 
@@ -45,17 +56,17 @@ type PostRow = {
 
 type ScoreResult = {
   id: number;
-  novelty_score: number;
-  craft_score: number;
-  appeal_score: number;
-  pick_reason: string;
+  tier: Tier;
+  vibe_tags: string[];
+  highlight: string;
 };
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const flags: { limit?: number; postIds?: number[]; dryRun: boolean; batchSize: number } = {
+  const flags: { limit?: number; postIds?: number[]; dryRun: boolean; batchSize: number; vision: boolean } = {
     dryRun: false,
     batchSize: 10,
+    vision: false,
   };
   let i = 0;
   while (i < args.length) {
@@ -70,11 +81,15 @@ function parseArgs() {
       }
     } else if (args[i] === "--dry-run") {
       flags.dryRun = true;
+    } else if (args[i] === "--vision") {
+      flags.vision = true;
     }
     i++;
   }
   return flags;
 }
+
+// ─── Batch mode (text-only, multiple posts per call) ─────────────────────────
 
 function formatPost(post: PostRow, idx: number): string {
   const techStack = post.tech_stack ? JSON.parse(post.tech_stack) : [];
@@ -95,50 +110,35 @@ ${post.story_text ? `Description: ${post.story_text.replace(/<[^>]*>/g, " ").sli
 function buildBatchPrompt(posts: PostRow[]): string {
   const projectList = posts.map((p, i) => formatPost(p, i)).join("\n\n---\n\n");
 
-  return `Score these ${posts.length} Show HN projects on three dimensions. You're seeing them together — score them RELATIVE to each other and to all Show HN projects generally.
+  return `You're a sharp, opinionated tech writer. Classify these ${posts.length} Show HN projects. You're seeing them together — judge them RELATIVE to each other.
 
 ${projectList}
 
 Return a JSON object with a "scores" array, one entry per project IN ORDER:
 {
   "scores": [
-    { "id": <post_id>, "novelty_score": 1-10, "craft_score": 1-10, "appeal_score": 1-10, "pick_reason": "one sentence" },
+    { "id": <post_id>, "tier": "gem|banger|solid|mid|pass", "vibe_tags": ["up to 3 tags"], "highlight": "2-3 sentence editorial take" },
     ...
   ]
 }
 
-SCORING GUIDE — use the FULL 1-10 range. Target distribution PER DIMENSION across all projects:
-  1-2: ~10% (truly weak/generic)
-  3-4: ~25% (below average)
-  5-6: ~30% (average/decent)
-  7-8: ~25% (strong/impressive)
-  9-10: ~10% (exceptional/best-in-class)
+TIER GUIDE — classify each project:
+  gem    (~5%): Exceptional. Mass-share worthy. Novel idea OR masterful execution OR instant viral appeal.
+  banger (~15%): Really compelling. Clear "oh that's cool" moment. Strong execution or fills a real gap.
+  solid  (~40%): Good work. Does what it says. Interesting to its niche.
+  mid    (~30%): Nothing special. Works but doesn't excite. Derivative or unremarkable.
+  pass   (~10%): Generic/broken/no substance. AI wrapper clone, empty landing page, tutorial-level.
 
-⚠️ THE #1 MISTAKE: Clustering everything at 4-6. BE BOLD. You have ${posts.length} projects — spread the scores! A generic AI wrapper is a 2, not a 4. A playable synth in the browser is an 8-9, not a 7.
+VIBE TAGS — pick 1-3 that genuinely fit (don't force them):
+  "Rabbit Hole" "Dark Horse" "Eye Candy" "Wizardry" "Big Brain" "Crowd Pleaser"
+  "Niche Gem" "Bold Bet" "Ship It" "Zero to One" "Cozy" "Slick" "Solve My Problem"
 
-NOVELTY — "Have I seen this before?"
-  9-10: Fundamentally new concept. Nothing like it exists.
-  7-8: Chess engine in 2KB. Real-time bot attack viz. Genuinely surprising.
-  5-6: Interesting twist. Fresh combo of known ideas.
-  3-4: Derivative with minor differentiator. Predictable.
-  1-2: Yet another todo/CRM/dashboard/AI wrapper clone.
+HIGHLIGHT — 2-3 sentences. Specific, not generic. Mention actual features or techniques.
+  For mid/pass: honestly say why it doesn't stand out.
+  For gem/banger: what specifically makes it exceptional.
 
-CRAFT — "How impressive is the execution?"
-  9-10: Masterful engineering. Systems that shouldn't be possible.
-  7-8: Deep systems work. Polished UI/UX. Production-grade infra.
-  5-6: Competent, works as described. Standard stack used well.
-  3-4: Rough edges. Copy-paste architecture. Bare minimum.
-  1-2: Minimal wrapper. Tutorial-level. Broken/no demo.
-
-APPEAL — "Would someone be excited to discover this?"
-  9-10: Instant viral appeal. Everyone wants to try it now.
-  7-8: Devs immediately want it. Fills a real gap. Compelling demo.
-  5-6: Useful for niche. Decent with existing alternatives.
-  3-4: Hard to get excited about.
-  1-2: No demo. Buzzword pitch. No "aha moment."
-
-IMPORTANT: Good enterprise/infra tools solving real pain = 7-8 on Appeal. Score dimensions INDEPENDENTLY.
-Within this batch, actively differentiate — not every project deserves the same score.
+You have ${posts.length} projects — DIFFERENTIATE. Not everything is "solid". Be bold with your tiers.
+Good enterprise/infra tools solving real pain = banger even if not "fun."
 
 Return ONLY valid JSON, no markdown.`;
 }
@@ -169,10 +169,9 @@ async function rescoreBatch(posts: PostRow[]): Promise<ScoreResult[]> {
 
     return parsed.scores.map((s: any) => ({
       id: Number(s.id),
-      novelty_score: Number(s.novelty_score) || 3,
-      craft_score: Number(s.craft_score) || 3,
-      appeal_score: Number(s.appeal_score) || 3,
-      pick_reason: String(s.pick_reason || ""),
+      tier: parseTier(s.tier),
+      vibe_tags: parseVibeTags(s.vibe_tags),
+      highlight: String(s.highlight || ""),
     }));
   } catch (err) {
     console.error("  API error:", (err as Error).message);
@@ -180,8 +179,57 @@ async function rescoreBatch(posts: PostRow[]): Promise<ScoreResult[]> {
   }
 }
 
-function clamp(v: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.round(v)));
+// ─── Vision mode (one post at a time, with screenshot) ──────────────────────
+
+function loadScreenshot(postId: number): string | undefined {
+  const screenshotPath = path.join(SCREENSHOT_DIR, `${postId}.webp`);
+  if (fs.existsSync(screenshotPath)) {
+    return fs.readFileSync(screenshotPath).toString("base64");
+  }
+  return undefined;
+}
+
+async function rescoreWithVision(post: PostRow): Promise<ScoreResult | null> {
+  try {
+    const screenshotBase64 = loadScreenshot(post.id);
+    const pageContent = post.summary || post.story_text?.replace(/<[^>]*>/g, " ").slice(0, 3000) || post.title;
+
+    const { result } = await analyzePost(
+      post.title,
+      post.url,
+      pageContent,
+      post.story_text,
+      undefined,
+      screenshotBase64
+    );
+
+    return {
+      id: post.id,
+      tier: result.tier,
+      vibe_tags: result.vibe_tags,
+      highlight: result.highlight,
+    };
+  } catch (err) {
+    console.error(`  ✗ ${post.id}: ${(err as Error).message}`);
+    return null;
+  }
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+function saveResult(postId: number, result: ScoreResult, existingPickReason: string | null) {
+  const pickScore = tierToPickScore(result.tier);
+  db.update(schema.aiAnalysis)
+    .set({
+      tier: result.tier,
+      vibeTags: JSON.stringify(result.vibe_tags),
+      pickReason: result.highlight || existingPickReason || "",
+      pickScore,
+      analyzedAt: Math.floor(Date.now() / 1000),
+      model: process.env.ANALYSIS_MODEL || "gpt-5-mini",
+    })
+    .where(eq(schema.aiAnalysis.postId, postId))
+    .run();
 }
 
 async function main() {
@@ -207,98 +255,101 @@ async function main() {
   }
 
   const posts = sqlite.prepare(query).all(...params) as PostRow[];
-  const batches = Math.ceil(posts.length / flags.batchSize);
-
-  console.log(`[rescore] ${posts.length} posts, batch size ${flags.batchSize} → ${batches} API calls`);
-  if (flags.dryRun) console.log("[rescore] DRY RUN — no writes");
 
   let processed = 0;
   let errors = 0;
+  const tierCounts: Record<string, number> = {};
 
-  for (let b = 0; b < batches; b++) {
-    const batch = posts.slice(b * flags.batchSize, (b + 1) * flags.batchSize);
-    const batchLabel = `[${b + 1}/${batches}]`;
-    
-    const results = await rescoreBatch(batch);
+  if (flags.vision) {
+    // Vision mode: one post at a time, with screenshot
+    console.log(`[rescore] Vision mode: ${posts.length} posts, 1 per API call (with screenshots)`);
+    if (flags.dryRun) console.log("[rescore] DRY RUN — no writes");
 
-    if (results.length === 0) {
-      errors += batch.length;
-      console.log(`  ${batchLabel} ✗ Entire batch failed`);
-      continue;
-    }
+    for (let i = 0; i < posts.length; i++) {
+      const post = posts[i];
+      const label = `[${i + 1}/${posts.length}]`;
+      const hasScreenshot = fs.existsSync(path.join(SCREENSHOT_DIR, `${post.id}.webp`));
 
-    // Map results by id for lookup
-    const resultMap = new Map(results.map((r) => [r.id, r]));
+      const result = await rescoreWithVision(post);
 
-    for (const post of batch) {
-      const result = resultMap.get(post.id);
       if (!result) {
         errors++;
-        console.log(`  ${batchLabel} ✗ ${post.id}: Missing from response`);
+        console.log(`  ${label} ✗ ${post.id}: Failed`);
+      } else {
+        const vibeStr = result.vibe_tags.length > 0 ? ` [${result.vibe_tags.join(", ")}]` : "";
+        tierCounts[result.tier] = (tierCounts[result.tier] || 0) + 1;
+
+        if (flags.dryRun) {
+          console.log(`  ${label} [dry] ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${hasScreenshot ? " 📸" : "   "}${vibeStr} | ${post.title.substring(0, 50)}`);
+        } else {
+          saveResult(post.id, result, post.pick_reason);
+          console.log(`  ${label} ✓ ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${hasScreenshot ? " 📸" : "   "}${vibeStr} | ${post.title.substring(0, 50)}`);
+        }
+        processed++;
+      }
+
+      // Rate limit
+      if (i < posts.length - 1) {
+        await new Promise((r) => setTimeout(r, RATE_DELAY));
+      }
+    }
+  } else {
+    // Batch mode: multiple posts per call, text only
+    const batches = Math.ceil(posts.length / flags.batchSize);
+    console.log(`[rescore] Batch mode: ${posts.length} posts, batch size ${flags.batchSize} → ${batches} API calls`);
+    if (flags.dryRun) console.log("[rescore] DRY RUN — no writes");
+
+    for (let b = 0; b < batches; b++) {
+      const batch = posts.slice(b * flags.batchSize, (b + 1) * flags.batchSize);
+      const batchLabel = `[${b + 1}/${batches}]`;
+
+      const results = await rescoreBatch(batch);
+
+      if (results.length === 0) {
+        errors += batch.length;
+        console.log(`  ${batchLabel} ✗ Entire batch failed`);
         continue;
       }
 
-      const novelty = clamp(result.novelty_score, 1, 10);
-      const craft = clamp(result.craft_score, 1, 10);
-      const appeal = clamp(result.appeal_score, 1, 10);
-      const pickScore = computePickScore(novelty, appeal, craft);
-      const pickReason = result.pick_reason || post.pick_reason || "";
+      const resultMap = new Map(results.map((r) => [r.id, r]));
 
-      if (flags.dryRun) {
-        console.log(`  ${batchLabel} [dry] ${post.id} | N:${novelty} C:${craft} A:${appeal} → ${pickScore} | ${post.title.substring(0, 50)}`);
-      } else {
-        db.update(schema.aiAnalysis)
-          .set({
-            noveltyScore: novelty,
-            ambitionScore: craft,
-            usefulnessScore: appeal,
-            pickScore,
-            pickReason,
-            analyzedAt: Math.floor(Date.now() / 1000),
-            model: process.env.ANALYSIS_MODEL || "gpt-5-mini",
-          })
-          .where(eq(schema.aiAnalysis.postId, post.id))
-          .run();
-        console.log(`  ${batchLabel} ✓ ${post.id} | N:${novelty} C:${craft} A:${appeal} → ${pickScore} | ${post.title.substring(0, 50)}`);
+      for (const post of batch) {
+        const result = resultMap.get(post.id);
+        if (!result) {
+          errors++;
+          console.log(`  ${batchLabel} ✗ ${post.id}: Missing from response`);
+          continue;
+        }
+
+        const vibeStr = result.vibe_tags.length > 0 ? ` [${result.vibe_tags.join(", ")}]` : "";
+        tierCounts[result.tier] = (tierCounts[result.tier] || 0) + 1;
+
+        if (flags.dryRun) {
+          console.log(`  ${batchLabel} [dry] ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${vibeStr} | ${post.title.substring(0, 50)}`);
+        } else {
+          saveResult(post.id, result, post.pick_reason);
+          console.log(`  ${batchLabel} ✓ ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${vibeStr} | ${post.title.substring(0, 50)}`);
+        }
+        processed++;
       }
-      processed++;
-    }
 
-    // Rate limit between batches
-    if (b < batches - 1) {
-      await new Promise((r) => setTimeout(r, RATE_DELAY));
+      // Rate limit between batches
+      if (b < batches - 1) {
+        await new Promise((r) => setTimeout(r, RATE_DELAY));
+      }
     }
   }
 
   console.log(`\n[rescore] Done. ${processed} scored, ${errors} errors.`);
 
-  // Print distribution
-  const allScores = sqlite
-    .prepare("SELECT pick_score FROM ai_analysis WHERE pick_score IS NOT NULL")
-    .all() as { pick_score: number }[];
-
-  const buckets: Record<string, number> = {};
-  for (const { pick_score } of allScores) {
-    const b = Math.floor(pick_score / 5) * 5;
-    buckets[`${b}-${b + 4}`] = (buckets[`${b}-${b + 4}`] || 0) + 1;
+  // Print tier distribution
+  console.log("\nTier distribution:");
+  for (const tier of TIERS) {
+    const count = tierCounts[tier] || 0;
+    const pct = processed > 0 ? ((count / processed) * 100).toFixed(1) : "0.0";
+    const bar = "█".repeat(Math.round(count / 3));
+    console.log(`  ${tier.toUpperCase().padEnd(6)}: ${String(count).padStart(4)} (${pct.padStart(5)}%) ${bar}`);
   }
-
-  console.log("\nFinal distribution:");
-  for (const [range, cnt] of Object.entries(buckets).sort()) {
-    const bar = "█".repeat(Math.round(cnt / 5));
-    console.log(`  ${range}: ${String(cnt).padStart(4)} ${bar}`);
-  }
-
-  // Sub-score stats
-  const stats = sqlite.prepare(`
-    SELECT 
-      ROUND(AVG(novelty_score),2) as avg_n,
-      ROUND(AVG(ambition_score),2) as avg_c,
-      ROUND(AVG(usefulness_score),2) as avg_a,
-      ROUND(AVG(pick_score),1) as avg_pick
-    FROM ai_analysis WHERE pick_score IS NOT NULL
-  `).get() as any;
-  console.log(`\nAvg sub-scores: N=${stats.avg_n} C=${stats.avg_c} A=${stats.avg_a} → Pick=${stats.avg_pick}`);
 }
 
 main().catch((err) => {
