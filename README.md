@@ -7,10 +7,10 @@ An AI-powered visual gallery for [Show HN](https://news.ycombinator.com/showhn.h
 ## Features
 
 - **Visual gallery** — Automated screenshots of every Show HN project
-- **AI analysis** — Each project gets a summary, category, tech stack, vibe score, and interest score via LLM
+- **AI analysis** — Each project gets a summary, category, tech stack, and multi-dimensional scoring (novelty, ambition, usefulness) via LLM, with a composite pick score and explanation of why standout projects are noteworthy
 - **Full-text search** — SQLite FTS5 search across titles and AI summaries
 - **Daily digest** — Curated view of each day's best projects
-- **Filtering** — By time range, category, points, comments, or AI interest score
+- **Filtering** — By time range, category, points, comments, or AI pick score
 - **Dark mode** — System-aware with manual toggle
 - **Fast** — Server-rendered with SQLite, no external database dependencies
 
@@ -49,12 +49,11 @@ npx tsx scripts/ingest.ts --backfill
 # Set up full-text search
 npx tsx scripts/setup-fts.ts
 
-# Take screenshots (optional, needs Playwright browsers)
+# Install Playwright browsers (for screenshots)
 npx playwright install chromium
-npx tsx scripts/screenshot.ts --limit 50
 
-# Run AI analysis (optional, needs API key)
-npx tsx scripts/analyze.ts --limit 50
+# Start the worker (processes screenshots + AI analysis)
+npx tsx scripts/worker.ts &
 
 # Start dev server
 npm run dev
@@ -67,8 +66,8 @@ The app runs on port 3000 by default. Override with `PORT=3333 npm run dev`.
 | Script | Description |
 |--------|-------------|
 | `scripts/ingest.ts` | Fetch Show HN posts from Algolia. Use `--backfill` for 30-day lookback. |
-| `scripts/screenshot.ts` | Capture screenshots via Playwright. Use `--limit N` to control batch size. |
-| `scripts/analyze.ts` | Run LLM analysis on posts. Use `--limit N` to control batch size. |
+| `scripts/worker.ts` | Persistent task queue worker. Processes screenshots (via Playwright) and AI analysis (via LLM) in a single combined step. Extracts rendered page text and GitHub READMEs for better AI input. |
+| `scripts/requeue.ts` | Re-enqueue tasks for reprocessing (e.g. after prompt changes). Use `analyze --all` to re-analyze everything. |
 | `scripts/setup-fts.ts` | Rebuild the FTS5 search index. Run after ingestion. |
 
 ### Environment Variables
@@ -104,7 +103,8 @@ app/
     components/       # React components (header, post card, filter bar, etc.)
     lib/
       db/             # Database schema, queries, connection
-      ai/             # LLM analysis pipeline
+      ai/             # LLM analysis pipeline (scoring, prompt, pick logic)
+      queue.ts        # SQLite-backed task queue
       sanitize.ts     # HTML sanitization
   scripts/            # Data pipeline scripts
   data/               # SQLite database (gitignored)

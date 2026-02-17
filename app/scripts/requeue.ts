@@ -2,15 +2,20 @@
  * Re-enqueue tasks for reprocessing.
  * Useful when you update the AI model/prompt or need to retake screenshots.
  *
+ * The default task type is "process" (combined screenshot + AI analysis).
+ * Use "analyze" only for posts without URLs (text-only Show HNs).
+ *
  * Usage:
- *   npx tsx scripts/requeue.ts analyze                    # all posts without analysis
- *   npx tsx scripts/requeue.ts analyze --all              # all posts (re-analyze everything)
- *   npx tsx scripts/requeue.ts analyze --model gpt-4o-mini  # posts analyzed with a specific model
- *   npx tsx scripts/requeue.ts analyze --before 2025-01-01  # posts analyzed before a date
- *   npx tsx scripts/requeue.ts analyze --post 12345 67890   # specific post IDs
- *   npx tsx scripts/requeue.ts screenshot --all           # retake all screenshots
- *   npx tsx scripts/requeue.ts screenshot --failed        # retry failed screenshot tasks
+ *   npx tsx scripts/requeue.ts process                    # posts without analysis (screenshot + AI)
+ *   npx tsx scripts/requeue.ts process --all              # all posts (reprocess everything)
+ *   npx tsx scripts/requeue.ts process --model gpt-4o-mini  # posts analyzed with a specific model
+ *   npx tsx scripts/requeue.ts process --before 2025-01-01  # posts analyzed before a date
+ *   npx tsx scripts/requeue.ts process --post 12345 67890   # specific post IDs
+ *   npx tsx scripts/requeue.ts analyze                    # text-only posts without analysis
+ *   npx tsx scripts/requeue.ts analyze --all              # all text-only posts
  *   npx tsx scripts/requeue.ts --stats                    # show queue stats
+ *
+ * Legacy aliases: "screenshot" is treated as "process" (combined pipeline).
  */
 
 import Database from "better-sqlite3";
@@ -75,40 +80,19 @@ function showStats() {
 }
 
 function getPostIdsForAnalyze(flags: Record<string, string | boolean | string[]>): number[] {
+  // Analyze-only is for text posts (no URL) — these can't take screenshots
+  const noUrlFilter = sql`${schema.posts.url} IS NULL`;
+
   if (flags.post) {
     return (flags.post as string[]).map(Number).filter((n) => !isNaN(n));
   }
 
   if (flags.all) {
-    // All posts (re-analyze everything)
+    // All text-only posts
     return db
       .select({ id: schema.posts.id })
       .from(schema.posts)
-      .all()
-      .map((r) => r.id);
-  }
-
-  if (flags.model) {
-    // Posts analyzed with a specific model
-    return db
-      .select({ id: schema.aiAnalysis.postId })
-      .from(schema.aiAnalysis)
-      .where(eq(schema.aiAnalysis.model, flags.model as string))
-      .all()
-      .map((r) => r.id);
-  }
-
-  if (flags.before) {
-    // Posts analyzed before a date
-    const cutoff = Math.floor(new Date(flags.before as string).getTime() / 1000);
-    if (isNaN(cutoff)) {
-      console.error(`[requeue] Invalid date: ${flags.before}`);
-      process.exit(1);
-    }
-    return db
-      .select({ id: schema.aiAnalysis.postId })
-      .from(schema.aiAnalysis)
-      .where(lte(schema.aiAnalysis.analyzedAt, cutoff))
+      .where(noUrlFilter)
       .all()
       .map((r) => r.id);
   }
@@ -128,23 +112,23 @@ function getPostIdsForAnalyze(flags: Record<string, string | boolean | string[]>
       .map((r) => r.postId);
   }
 
-  // Default: posts without any analysis
+  // Default: text-only posts without any analysis
   return db
     .select({ id: schema.posts.id })
     .from(schema.posts)
     .leftJoin(schema.aiAnalysis, eq(schema.posts.id, schema.aiAnalysis.postId))
-    .where(isNull(schema.aiAnalysis.postId))
+    .where(and(noUrlFilter, isNull(schema.aiAnalysis.postId)))
     .all()
     .map((r) => r.id);
 }
 
-function getPostIdsForScreenshot(flags: Record<string, string | boolean | string[]>): number[] {
+function getPostIdsForProcess(flags: Record<string, string | boolean | string[]>): number[] {
   if (flags.post) {
     return (flags.post as string[]).map(Number).filter((n) => !isNaN(n));
   }
 
   if (flags.all) {
-    // All posts with URLs
+    // All posts with URLs (reprocess everything)
     return db
       .select({ id: schema.posts.id })
       .from(schema.posts)
@@ -158,14 +142,51 @@ function getPostIdsForScreenshot(flags: Record<string, string | boolean | string
       .map((r) => r.id);
   }
 
+  if (flags.model) {
+    // Posts analyzed with a specific model
+    return db
+      .select({ id: schema.aiAnalysis.postId })
+      .from(schema.aiAnalysis)
+      .innerJoin(schema.posts, eq(schema.posts.id, schema.aiAnalysis.postId))
+      .where(
+        and(
+          eq(schema.aiAnalysis.model, flags.model as string),
+          sql`${schema.posts.url} IS NOT NULL`
+        )
+      )
+      .all()
+      .map((r) => r.id);
+  }
+
+  if (flags.before) {
+    // Posts analyzed before a date
+    const cutoff = Math.floor(new Date(flags.before as string).getTime() / 1000);
+    if (isNaN(cutoff)) {
+      console.error(`[requeue] Invalid date: ${flags.before}`);
+      process.exit(1);
+    }
+    return db
+      .select({ id: schema.aiAnalysis.postId })
+      .from(schema.aiAnalysis)
+      .innerJoin(schema.posts, eq(schema.posts.id, schema.aiAnalysis.postId))
+      .where(
+        and(
+          lte(schema.aiAnalysis.analyzedAt, cutoff),
+          sql`${schema.posts.url} IS NOT NULL`
+        )
+      )
+      .all()
+      .map((r) => r.id);
+  }
+
   if (flags.failed) {
-    // Re-enqueue failed screenshot tasks
+    // Re-enqueue failed process/screenshot tasks
     return db
       .select({ postId: schema.taskQueue.postId })
       .from(schema.taskQueue)
       .where(
         and(
-          eq(schema.taskQueue.type, "screenshot"),
+          sql`${schema.taskQueue.type} IN ('process', 'screenshot')`,
           eq(schema.taskQueue.status, "failed")
         )
       )
@@ -173,15 +194,16 @@ function getPostIdsForScreenshot(flags: Record<string, string | boolean | string
       .map((r) => r.postId);
   }
 
-  // Default: posts without screenshots
+  // Default: posts with URLs that are missing analysis or new fields
   return db
     .select({ id: schema.posts.id })
     .from(schema.posts)
+    .leftJoin(schema.aiAnalysis, eq(schema.posts.id, schema.aiAnalysis.postId))
     .where(
       and(
-        eq(schema.posts.hasScreenshot, 0),
         eq(schema.posts.status, "active"),
-        sql`${schema.posts.url} IS NOT NULL`
+        sql`${schema.posts.url} IS NOT NULL`,
+        sql`(${schema.aiAnalysis.postId} IS NULL OR ${schema.aiAnalysis.pickScore} IS NULL)`
       )
     )
     .all()
@@ -196,28 +218,41 @@ function main() {
     return;
   }
 
-  if (!taskType || !["screenshot", "analyze"].includes(taskType)) {
-    console.error("Usage: npx tsx scripts/requeue.ts <screenshot|analyze> [options]");
+  // Default to "process" if no type given; treat "screenshot" as "process" (legacy alias)
+  const resolvedType = !taskType ? "process" : taskType === "screenshot" ? "process" : taskType;
+
+  if (!["process", "analyze"].includes(resolvedType)) {
+    console.error("Usage: npx tsx scripts/requeue.ts [process|analyze] [options]");
     console.error("       npx tsx scripts/requeue.ts --stats");
     console.error("");
     console.error("Options:");
     console.error("  --all              Reprocess all posts");
     console.error("  --failed           Retry failed tasks");
-    console.error("  --model <name>     Posts analyzed with specific model (analyze only)");
-    console.error("  --before <date>    Posts analyzed before date (analyze only)");
+    console.error("  --model <name>     Posts analyzed with specific model");
+    console.error("  --before <date>    Posts analyzed before date");
     console.error("  --post <id> ...    Specific post IDs");
     console.error("  --priority <n>     Task priority (default 0, higher = processed sooner)");
     console.error("  --stats            Show queue statistics");
+    console.error("");
+    console.error("Task types:");
+    console.error("  process            Combined screenshot + AI analysis (default)");
+    console.error("  analyze            AI analysis only (for text-only posts without URLs)");
     process.exit(1);
   }
 
-  const type = taskType as TaskType;
+  // For "process" tasks, use the same filters as analyze but enqueue as "process"
+  // For "analyze", only target posts without URLs
+  const type = resolvedType as TaskType;
   const priority = flags.priority ? parseInt(flags.priority as string, 10) : 0;
 
-  const postIds =
-    type === "analyze"
-      ? getPostIdsForAnalyze(flags)
-      : getPostIdsForScreenshot(flags);
+  let postIds: number[];
+  if (type === "analyze") {
+    // Analyze-only: text posts without URLs
+    postIds = getPostIdsForAnalyze({ ...flags, noUrl: true });
+  } else {
+    // Process (combined): posts with URLs
+    postIds = getPostIdsForProcess(flags);
+  }
 
   if (postIds.length === 0) {
     console.log(`[requeue] No posts to enqueue for ${type}`);
