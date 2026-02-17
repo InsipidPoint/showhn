@@ -73,7 +73,7 @@ SCORING GUIDE — use the FULL 1-10 range, aim for a bell curve centered around 
 
 Novelty: Is this a fresh idea or yet another todo/CRM/dashboard? Clones and "X but in Y language" = 2-3.
 Ambition: A CLI wrapper = 2-3. Full-stack platform with complex algorithms = 7-8. Novel research = 9-10.
-Usefulness: Does the target audience actually need this TODAY? Theoretical/niche toys = 2-3. Broad real pain point = 7-8.
+Usefulness: Be strict here. Ask: "Would I actually switch to this from what I use now?" Most Show HN projects are cool demos that few will adopt daily = 3-5. Only score 7+ if it fills a gap where no good alternative exists AND the target audience is large.
 
 Differentiate! If everything scores 5, you're not being helpful. Spread your scores.
 Be concise. Return ONLY valid JSON, no markdown fencing.`;
