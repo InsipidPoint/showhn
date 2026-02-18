@@ -86,7 +86,7 @@ const CATEGORIES = [
 
 function buildPrompt(title: string, url: string | null, pageContent: string, storyText: string | null, readmeContent?: string, hasScreenshot?: boolean): string {
   return `You're a sharp, opinionated tech writer reviewing Show HN projects. Analyze this project and return a JSON object.
-${hasScreenshot ? "\nA screenshot of the project's landing page is attached. Use it to judge design quality, UI polish, and visual appeal. This is a major input for your tier and vibe_tags assessment.\n" : ""}
+${hasScreenshot ? "\nA screenshot of the project's landing page is attached. Use it to assess design and UI quality — but don't let visual polish inflate the tier. A clean landing page is table stakes, not a differentiator. Most SaaS products look decent now. Only upgrade a tier for design if the visuals are genuinely striking or the UX reveals real craft. A pretty page on a derivative idea is still mid.\n" : ""}
 Title: ${title}
 URL: ${url || "N/A (text-only post)"}
 ${storyText ? `Author's description: ${storyText.replace(/<[^>]*>/g, " ").slice(0, 1000)}` : ""}
@@ -107,12 +107,39 @@ Return ONLY a JSON object with these fields:
   "tags": ["3-5 descriptive tags beyond the category"]
 }
 
-TIER GUIDE — pick the one that fits:
-  gem:    You'd mass-share this link. Genuinely novel idea, masterful execution, or instant viral appeal.
-  banger: Has a clear "oh that's cool" moment. Strong execution on an interesting idea, or fills a real gap impressively.
-  solid:  Competent project that does what it says. Interesting to its niche, reasonable execution.
-  mid:    Works but doesn't excite. Derivative idea, unremarkable execution, or solves a problem nobody has.
-  pass:   Generic, broken, or no substance. No differentiation, empty landing page, tutorial-level clone, or fundamentally flawed.
+TIER GUIDE — read all five before deciding. When in doubt, go lower.
+  gem:    You'd text this link to a friend right now. Requires genuinely novel idea AND
+          impressive execution AND broad appeal — all three together. If you're debating
+          between gem and banger, it's a banger.
+  banger: Clear "oh that's cool" moment that most developers would appreciate. Needs both
+          an interesting idea AND strong execution — not either/or. The project must do
+          something that isn't already well-served by established tools in the space.
+          If you're debating between banger and solid, it's a solid.
+  solid:  Competent project that does what it says. Interesting to its niche, reasonable
+          execution. You'd use it if you had the problem but wouldn't go out of your way
+          to tell someone about it.
+  mid:    Works but doesn't stand out. Applies to: derivative idea where a well-known tool
+          already does this, unremarkable execution, crowded category with no clear
+          differentiation, or an embryonic product competing against established tools.
+          A README full of buzzwords without matching implementation quality belongs here.
+  pass:   No substance. Generic, broken, tutorial-level clone, empty landing page, blog
+          post masquerading as a product, or a feature count without real depth (e.g. "100+
+          tools" that each wrap a library function).
+
+TIER REFERENCE EXAMPLES — use these to calibrate your judgment:
+  gem:    "Windows 98½" — pixel-accurate retro desktop that runs real sites. Novel concept,
+          masterful CSS craft, instant viral appeal. All three together = gem.
+  banger: "HiddenState" — ML news filter using cross-source convergence scoring. Clever
+          methodology, real value, but ultimately still a newsletter/digest. Cool idea +
+          good execution but not "stop what you're doing and look at this" = banger.
+  solid:  "ContextLedger" — CLI for handing off context between AI coding sessions. Real
+          problem, decent engineering, but no "oh cool" moment. Competent and useful to
+          its niche = solid.
+  mid:    "Klovr" — HTML-to-Markdown converter for LLMs. JinaAI, Firecrawl, and Pandoc
+          already do this well. Competent but the category is commoditized = mid.
+  pass:   "Free Browser Dev Tools" — JSON formatter, base64 encoder, JWT decoder on a
+          GitHub Pages site. Works fine but CyberChef and 100 identical sites exist.
+          Nothing here worth curating = pass.
 
 VIBE TAGS — pick 1-3 that genuinely fit from this list (don't force them):
   "Rabbit Hole"      — You'll lose hours exploring this
@@ -129,16 +156,33 @@ VIBE TAGS — pick 1-3 that genuinely fit from this list (don't force them):
   "Slick"            — Polished, feels like a real product
   "Solve My Problem" — Immediately useful, fills a real gap
 
-HIGHLIGHT GUIDE — this is the most important field. Write 2-3 sentences like a mini-review:
-  Good: "This turns your terminal into a full synthesizer using Web MIDI — you can actually play chords with your keyboard. The latency is impressively low for a browser-based tool. The kind of project you open meaning to glance at and then lose 30 minutes to."
-  Good: "A dead-simple CLI that finds unused CSS across your codebase. Not flashy, but this solves a genuine pain point that existing tools handle poorly. The zero-config approach is smart."
-  Bad: "An interesting project with good execution and some novel ideas." (too generic, says nothing)
-  Bad: "This is a really cool tool." (empty praise)
+HIGHLIGHT GUIDE — this is the most important field. Make it worth reading.
+  Rules:
+  - NEVER start with "A [adjective] [noun] that..." — this sentence formula is banned.
+  - Vary your sentence structure. Mix short punchy sentences with longer ones.
+  - Be specific: name actual features, techniques, or design choices.
+  - Have a point of view. Say what's clever, what's missing, what surprised you.
+  - For mid/pass: be honest and direct about why it doesn't stand out.
+  - 2-3 sentences max. Every word should earn its place.
+  Voice: sharp, opinionated, curious. Like a senior dev who's seen a lot and gets genuinely
+  excited when something is actually good — and isn't polite about the rest.
+  BANNED phrases (never use these): "polished", "well-executed", "addresses a clear need",
+  "fills a real gap", "production-ready", "developer-focused", "seamlessly", "thoughtful",
+  "leverages", "bridges the gap".
+  Good: "Someone spent real time on the CSS — the scrollbar arrows are SVGs, the window
+  chrome has proper inset/outset borders, the startup splash has a working progress bar.
+  Pixel-accurate 1998 nostalgia that somehow runs real sites inside it."
+  Good: "HTML-to-Markdown for LLMs is a solved problem — JinaAI, Firecrawl, and Pandoc
+  all do this. The CSS selector rules for site-specific extraction are a nice touch, but
+  this needs a stronger reason to exist than a faster P99."
+  Good: "Nine layers of architecture including Bayesian preference learning and LightGBM
+  ranking — for a local memory tool. The README is more confident than the implementation
+  evidence justifies."
+  Bad: "A polished, developer-focused tool that addresses a clear gap in the ecosystem."
+  (banned words, formula sentence, says nothing specific)
 
-For mid/pass tier projects, the highlight should honestly say why it doesn't stand out:
-  Good: "Another project management board, but this one doesn't bring anything new to the Trello/Linear/Notion landscape. The UI is clean enough but there's no clear reason to switch."
-
-Don't penalize good enterprise/infra projects — a well-executed database tool solving real pain is a banger even if it's not "fun."
+Don't penalize good enterprise/infra projects — a well-built database tool solving real
+pain is a banger even if it's not "fun."
 
 Be concise. Return ONLY valid JSON, no markdown fencing.`;
 }

@@ -465,10 +465,15 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
     await context.close();
   }
 
-  // Update screenshot status
+  // Update screenshot status + store page content
   if (screenshotSuccess) {
     db.update(schema.posts)
-      .set({ hasScreenshot: 1 })
+      .set({ hasScreenshot: 1, pageContent: pageText || null })
+      .where(eq(schema.posts.id, post.id))
+      .run();
+  } else if (pageText) {
+    db.update(schema.posts)
+      .set({ pageContent: pageText })
       .where(eq(schema.posts.id, post.id))
       .run();
   }
@@ -480,6 +485,10 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
     readmeContent = await fetchGitHubReadme(ghRepo.owner, ghRepo.repo);
     if (readmeContent) {
       console.log(`  [process] Fetched README for ${ghRepo.owner}/${ghRepo.repo}`);
+      db.update(schema.posts)
+        .set({ readmeContent })
+        .where(eq(schema.posts.id, post.id))
+        .run();
     }
   }
 

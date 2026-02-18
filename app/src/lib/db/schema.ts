@@ -12,6 +12,8 @@ export const posts = sqliteTable(
     createdAt: integer("created_at").notNull(), // unix timestamp
     storyText: text("story_text"),
     hasScreenshot: integer("has_screenshot").default(0),
+    pageContent: text("page_content"), // Rendered page text from Playwright (up to 5KB)
+    readmeContent: text("readme_content"), // GitHub README markdown (up to 5KB)
     status: text("status").default("active"), // active/dead/no_url
     fetchedAt: integer("fetched_at").notNull(),
     updatedAt: integer("updated_at").notNull(),

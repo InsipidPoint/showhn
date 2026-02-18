@@ -43,6 +43,8 @@ type PostRow = {
   points: number;
   comments: number;
   story_text: string | null;
+  page_content: string | null;
+  readme_content: string | null;
   summary: string | null;
   category: string | null;
   tech_stack: string | null;
@@ -121,22 +123,42 @@ Return a JSON object with a "scores" array, one entry per project IN ORDER:
   ]
 }
 
-TIER GUIDE — pick the one that fits:
-  gem:    You'd mass-share this link. Genuinely novel idea, masterful execution, or instant viral appeal.
-  banger: Has a clear "oh that's cool" moment. Strong execution on an interesting idea, or fills a real gap impressively.
-  solid:  Competent project that does what it says. Interesting to its niche, reasonable execution.
-  mid:    Works but doesn't excite. Derivative idea, unremarkable execution, or solves a problem nobody has.
-  pass:   Generic, broken, or no substance. No differentiation, empty landing page, tutorial-level clone, or fundamentally flawed.
+TIER GUIDE — read all five before deciding. When in doubt, go lower.
+  gem:    You'd text this link to a friend right now. Requires genuinely novel idea AND
+          impressive execution AND broad appeal — all three together. If debating gem
+          vs banger, it's a banger.
+  banger: Clear "oh that's cool" moment. Needs both an interesting idea AND strong
+          execution — not either/or. Must do something not already well-served by
+          established tools. If debating banger vs solid, it's a solid.
+  solid:  Competent, does what it says. Interesting to its niche, reasonable execution.
+          You'd use it if you had the problem but wouldn't tell someone about it.
+  mid:    Works but doesn't stand out. Derivative idea where a well-known tool already
+          does this, crowded category with no differentiation, or embryonic product
+          competing against established tools. Buzzword-heavy README without matching
+          implementation quality belongs here.
+  pass:   No substance. Generic, broken, tutorial-level clone, empty landing page, blog
+          post as product, or feature count without depth.
 
-VIBE TAGS — pick 1-3 that genuinely fit from this list (don't force them):
+REFERENCE EXAMPLES:
+  gem:    "Windows 98½" — pixel-accurate retro desktop running real sites. Novel + masterful craft + viral = gem.
+  banger: "HiddenState" — ML news via cross-source convergence scoring. Clever + useful but still a digest = banger.
+  solid:  "ContextLedger" — AI session context handoff CLI. Real problem, decent engineering, no "oh cool" moment = solid.
+  mid:    "Klovr" — HTML-to-Markdown for LLMs. JinaAI/Firecrawl/Pandoc already do this well = mid.
+  pass:   "Free Dev Tools" — JSON formatter + base64 encoder on GitHub Pages. CyberChef exists = pass.
+
+VIBE TAGS — pick 1-3 that genuinely fit (don't force them):
   "Rabbit Hole" "Dark Horse" "Eye Candy" "Wizardry" "Big Brain" "Crowd Pleaser"
   "Niche Gem" "Bold Bet" "Ship It" "Zero to One" "Cozy" "Slick" "Solve My Problem"
 
-HIGHLIGHT — 2-3 sentences like a mini-review. Specific, not generic. Mention actual features or techniques.
-  For mid/pass: honestly say why it doesn't stand out.
-  For gem/banger: what specifically makes it exceptional.
+HIGHLIGHT — 2-3 sentences, specific, opinionated. This is the most important field.
+  NEVER start with "A [adjective] [noun] that..." — vary your sentence structure.
+  BANNED phrases: "polished", "well-executed", "addresses a clear need", "fills a real
+  gap", "production-ready", "developer-focused", "seamlessly", "thoughtful", "leverages".
+  Name actual features or techniques. Have a point of view.
+  For mid/pass: be direct about why it doesn't stand out.
 
-Don't penalize good enterprise/infra projects — a well-executed database tool solving real pain is a banger even if it's not "fun."
+Don't penalize good enterprise/infra projects — a well-built database tool solving real
+pain is a banger even if it's not "fun."
 
 Return ONLY valid JSON, no markdown.`;
 }
@@ -190,14 +212,15 @@ function loadScreenshot(postId: number): string | undefined {
 async function rescoreWithVision(post: PostRow): Promise<ScoreResult | null> {
   try {
     const screenshotBase64 = loadScreenshot(post.id);
-    const pageContent = post.summary || post.story_text?.replace(/<[^>]*>/g, " ").slice(0, 3000) || post.title;
+    // Prefer stored page_content (original Playwright render), fall back to summary/story_text
+    const pageContent = post.page_content || post.summary || post.story_text?.replace(/<[^>]*>/g, " ").slice(0, 3000) || post.title;
 
     const { result } = await analyzePost(
       post.title,
       post.url,
       pageContent,
       post.story_text,
-      undefined,
+      post.readme_content || undefined,
       screenshotBase64
     );
 
@@ -235,6 +258,7 @@ async function main() {
 
   let query = `
     SELECT p.id, p.title, p.url, p.points, p.comments, p.story_text,
+           p.page_content, p.readme_content,
            a.summary, a.category, a.tech_stack, a.target_audience, a.tags, a.pick_reason
     FROM posts p
     JOIN ai_analysis a ON a.post_id = p.id

@@ -135,6 +135,8 @@ export async function searchPosts(
     createdAt: r.created_at,
     storyText: r.story_text,
     hasScreenshot: r.has_screenshot,
+    pageContent: r.page_content,
+    readmeContent: r.readme_content,
     status: r.status,
     fetchedAt: r.fetched_at,
     updatedAt: r.updated_at,
