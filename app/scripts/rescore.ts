@@ -1,15 +1,12 @@
 /**
  * Batch re-score existing posts using data already in the DB.
- * Sends multiple posts per LLM call for tier classification + vibe tags + highlight.
- *
- * With --vision flag, processes one post at a time and sends the screenshot
- * from disk to the model for visual analysis (no browser needed).
+ * Default: vision mode — one post at a time with screenshot for best accuracy.
+ * Use --text-only for fast batch mode (multiple posts per call, no screenshots).
  *
  * Usage:
- *   npx tsx scripts/rescore.ts                  # batch mode (text only)
- *   npx tsx scripts/rescore.ts --vision         # single-post mode with screenshots
- *   npx tsx scripts/rescore.ts --limit 50       # first 50 posts
- *   npx tsx scripts/rescore.ts --batch 15       # 15 posts per API call (default 10)
+ *   npx tsx scripts/rescore.ts --limit 30       # rescore 30 posts with screenshots (default)
+ *   npx tsx scripts/rescore.ts --text-only      # batch mode, no screenshots (faster/cheaper)
+ *   npx tsx scripts/rescore.ts --batch 15       # 15 posts per API call (text-only mode)
  *   npx tsx scripts/rescore.ts --post 123 456   # specific post IDs
  *   npx tsx scripts/rescore.ts --dry-run        # preview without writing
  */
@@ -66,7 +63,7 @@ function parseArgs() {
   const flags: { limit?: number; postIds?: number[]; dryRun: boolean; batchSize: number; vision: boolean } = {
     dryRun: false,
     batchSize: 10,
-    vision: false,
+    vision: true,
   };
   let i = 0;
   while (i < args.length) {
@@ -83,6 +80,8 @@ function parseArgs() {
       flags.dryRun = true;
     } else if (args[i] === "--vision") {
       flags.vision = true;
+    } else if (args[i] === "--text-only") {
+      flags.vision = false;
     }
     i++;
   }
