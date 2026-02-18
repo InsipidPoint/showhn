@@ -255,7 +255,7 @@ export async function analyzePost(
   screenshotBase64?: string
 ): Promise<{ result: AnalysisResult; model: string }> {
   const provider = process.env.ANALYSIS_PROVIDER || "openai";
-  const model = process.env.ANALYSIS_MODEL || "gpt-4o-mini";
+  const model = process.env.ANALYSIS_MODEL || "gpt-5-mini";
   const prompt = buildPrompt(title, url, pageContent, storyText, readmeContent, !!screenshotBase64);
 
   let raw: string;

@@ -147,7 +147,7 @@ async function rescoreBatch(posts: PostRow[]): Promise<ScoreResult[]> {
 
   try {
     const response = await client.chat.completions.create({
-      model: process.env.ANALYSIS_MODEL || "gpt-4o-mini",
+      model: process.env.ANALYSIS_MODEL || "gpt-5-mini",
       messages: [{ role: "user", content: prompt }],
       max_completion_tokens: 500 * posts.length,
       response_format: { type: "json_object" },
@@ -224,7 +224,7 @@ function saveResult(postId: number, result: ScoreResult, existingPickReason: str
       pickReason: result.highlight || existingPickReason || "",
       pickScore,
       analyzedAt: Math.floor(Date.now() / 1000),
-      model: process.env.ANALYSIS_MODEL || "gpt-4o-mini",
+      model: process.env.ANALYSIS_MODEL || "gpt-5-mini",
     })
     .where(eq(schema.aiAnalysis.postId, postId))
     .run();
