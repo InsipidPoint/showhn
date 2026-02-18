@@ -109,7 +109,7 @@ ${post.story_text ? `Description: ${post.story_text.replace(/<[^>]*>/g, " ").sli
 function buildBatchPrompt(posts: PostRow[]): string {
   const projectList = posts.map((p, i) => formatPost(p, i)).join("\n\n---\n\n");
 
-  return `You're a sharp, opinionated tech writer. Classify these ${posts.length} Show HN projects. You're seeing them together — judge them RELATIVE to each other.
+  return `You're a sharp, opinionated tech writer reviewing Show HN projects. Classify each on its own merits.
 
 ${projectList}
 
@@ -123,21 +123,20 @@ Return a JSON object with a "scores" array, one entry per project IN ORDER:
 
 TIER GUIDE — pick the one that fits:
   gem:    You'd mass-share this link. Genuinely novel idea, masterful execution, or instant viral appeal.
-  banger: Clear "oh that's cool" moment. Strong execution on an interesting idea, or fills a real gap impressively.
+  banger: Has a clear "oh that's cool" moment. Strong execution on an interesting idea, or fills a real gap impressively.
   solid:  Competent project that does what it says. Interesting to its niche, reasonable execution.
-  mid:    Works but doesn't excite. Derivative, unremarkable, or solves a problem nobody has.
-  pass:   Generic, broken, or no substance. No differentiation, empty landing page, tutorial-level clone.
+  mid:    Works but doesn't excite. Derivative idea, unremarkable execution, or solves a problem nobody has.
+  pass:   Generic, broken, or no substance. No differentiation, empty landing page, tutorial-level clone, or fundamentally flawed.
 
-VIBE TAGS — pick 1-3 that genuinely fit (don't force them):
+VIBE TAGS — pick 1-3 that genuinely fit from this list (don't force them):
   "Rabbit Hole" "Dark Horse" "Eye Candy" "Wizardry" "Big Brain" "Crowd Pleaser"
   "Niche Gem" "Bold Bet" "Ship It" "Zero to One" "Cozy" "Slick" "Solve My Problem"
 
-HIGHLIGHT — 2-3 sentences. Specific, not generic. Mention actual features or techniques.
+HIGHLIGHT — 2-3 sentences like a mini-review. Specific, not generic. Mention actual features or techniques.
   For mid/pass: honestly say why it doesn't stand out.
   For gem/banger: what specifically makes it exceptional.
 
-You have ${posts.length} projects — DIFFERENTIATE. Not everything is "solid". Be bold with your tiers.
-Good enterprise/infra tools solving real pain = banger even if not "fun."
+Don't penalize good enterprise/infra projects — a well-executed database tool solving real pain is a banger even if it's not "fun."
 
 Return ONLY valid JSON, no markdown.`;
 }
