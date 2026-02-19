@@ -27,7 +27,7 @@ import sharp from "sharp";
 import dotenv from "dotenv";
 
 // Load env
-dotenv.config({ path: path.join(process.cwd(), ".env.local") });
+dotenv.config({ path: path.join(process.cwd(), ".env.local"), override: true });
 
 const DB_PATH =
   process.env.DATABASE_PATH || path.join(process.cwd(), "data", "showhn.db");

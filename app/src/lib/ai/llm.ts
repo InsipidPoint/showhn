@@ -110,16 +110,9 @@ const CATEGORIES = [
   "Other",
 ];
 
-function buildPrompt(title: string, url: string | null, pageContent: string, storyText: string | null, readmeContent?: string, hasScreenshot?: boolean): string {
-  return `You're a sharp, opinionated tech writer reviewing Show HN projects. Analyze this project and return a JSON object.
-${hasScreenshot ? "\nA screenshot of the project's landing page is attached. Use it to assess design and UI quality — but don't let visual polish inflate the tier. A clean landing page is table stakes, not a differentiator. Most SaaS products look decent now. Only upgrade a tier for design if the visuals are genuinely striking or the UX reveals real craft. A pretty page on a derivative idea is still mid.\n" : ""}
-Title: ${title}
-URL: ${url || "N/A (text-only post)"}
-${storyText ? `Author's description: ${storyText.replace(/<[^>]*>/g, " ").slice(0, 1000)}` : ""}
-
-Page content (truncated):
-${pageContent.slice(0, 3000)}
-${readmeContent ? `\nGitHub README (truncated):\n${readmeContent.slice(0, 3000)}` : ""}
+/** Static system prompt — identical across all calls, cached by Anthropic. */
+function buildSystemPrompt(): string {
+  return `You're a sharp, opinionated tech writer reviewing Show HN projects. Analyze the project provided and return a JSON object.
 
 Return ONLY a JSON object with these fields:
 {
@@ -128,7 +121,7 @@ Return ONLY a JSON object with these fields:
   "target_audience": "Who would use this (e.g. 'Backend developers', 'Small business owners')",
   "tier": "gem | banger | solid | mid | pass",
   "vibe_tags": ["1-3 tags from the allowed list below"],
-  "highlight": "One sentence that makes someone click or skip. Lead with what's interesting or what's not. Specific and opinionated. Max 25 words.",
+  "highlight": "One punchy sentence, MAX 15 words. Hook or dismiss. Name a specific feature or competitor.",
   "strengths": ["1-3 bullets, ~12 words each: what's genuinely clever, useful, or well-built"],
   "weaknesses": ["1-2 bullets, ~12 words each: what's missing, limiting, or already solved elsewhere"],
   "similar_to": ["1-3 existing tools or products this competes with or closely resembles. Empty array if truly novel."]
@@ -242,20 +235,21 @@ VIBE TAGS — pick 1-3 that genuinely fit from this list (don't force them):
   "Slick"            — Polished, feels like a real product
   "Solve My Problem" — Immediately useful, fills a real gap
 
-HIGHLIGHT — one sentence (~25 words max) that hooks or dismisses.
-  Strengths/weaknesses carry the detail — the highlight just makes someone click or skip.
+HIGHLIGHT — ONE short sentence. HARD MAX 15 words (~80 characters). This is a card label, not a review.
+  Strengths/weaknesses carry the detail — the highlight is just a hook or a dismissal.
   Rules:
+  - HARD LIMIT: 15 words. If your sentence has 16+ words, shorten it. Count before returning.
   - NEVER start with "A [adjective] [noun] that..."
-  - Be specific: name a feature, technique, or competitor.
-  - Have a point of view.
+  - One idea only. No dashes, semicolons, or "but" clauses.
+  - Name a specific feature, technique, or competitor.
   - For mid/pass: be direct about why.
-  Voice: sharp, opinionated, like a senior dev texting a friend.
+  Voice: sharp, opinionated, like a text message.
   BANNED phrases: "polished", "well-executed", "addresses a clear need", "fills a real gap",
   "production-ready", "developer-focused", "seamlessly", "thoughtful", "leverages".
-  Good: "Pixel-accurate Win98 nostalgia that somehow runs real sites inside it."
-  Good: "HTML-to-Markdown for LLMs when JinaAI and Firecrawl already exist."
-  Good: "Nine layers of architecture for a local memory tool — the README outpaces the code."
-  Bad: "A polished, developer-focused tool that addresses a clear gap in the ecosystem."
+  Good (11w): "Pixel-accurate Win98 nostalgia that somehow runs real sites inside it."
+  Good (12w): "HTML-to-Markdown for LLMs when JinaAI and Firecrawl already exist."
+  Good (8w):  "Yet another auth wrapper, but this one's free."
+  Bad (22w):  "Clever integration of Git worktrees with Niri workspaces, but the audience is tiny — only matters if you're already using both."
 
 Don't penalize good enterprise/infra projects — a well-built database tool solving real
 pain is a banger even if it's not "fun."
@@ -263,10 +257,21 @@ pain is a banger even if it's not "fun."
 Be concise. Return ONLY valid JSON, no markdown fencing.`;
 }
 
-async function callOpenAI(prompt: string, model: string, screenshotBase64?: string): Promise<string> {
+/** Per-post user message — the variable part that changes every call. */
+function buildUserMessage(title: string, url: string | null, pageContent: string, storyText: string | null, readmeContent?: string, hasScreenshot?: boolean): string {
+  return `${hasScreenshot ? "A screenshot of the project's landing page is attached. Use it to assess design and UI quality — but don't let visual polish inflate the tier. A clean landing page is table stakes, not a differentiator. Most SaaS products look decent now. Only upgrade a tier for design if the visuals are genuinely striking or the UX reveals real craft. A pretty page on a derivative idea is still mid.\n\n" : ""}Title: ${title}
+URL: ${url || "N/A (text-only post)"}
+${storyText ? `Author's description: ${storyText.replace(/<[^>]*>/g, " ").slice(0, 1000)}` : ""}
+
+Page content (truncated):
+${pageContent.slice(0, 3000)}
+${readmeContent ? `\nGitHub README (truncated):\n${readmeContent.slice(0, 3000)}` : ""}`;
+}
+
+async function callOpenAI(systemPrompt: string, userMessage: string, model: string, screenshotBase64?: string): Promise<string> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  // Build message content — text-only or text+image
+  // Build user message content — text-only or text+image
   const content: OpenAI.ChatCompletionContentPart[] = [];
   if (screenshotBase64) {
     content.push({
@@ -274,19 +279,32 @@ async function callOpenAI(prompt: string, model: string, screenshotBase64?: stri
       image_url: { url: `data:image/webp;base64,${screenshotBase64}`, detail: "auto" },
     });
   }
-  content.push({ type: "text", text: prompt });
+  content.push({ type: "text", text: userMessage });
 
   const response = await client.chat.completions.create({
     model,
-    messages: [{ role: "user", content }],
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content },
+    ],
     max_completion_tokens: 4000,
     response_format: { type: "json_object" },
   });
   return response.choices[0]?.message?.content || "";
 }
 
-async function callAnthropic(prompt: string, model: string, screenshotBase64?: string): Promise<string> {
+async function callAnthropic(systemPrompt: string, userMessage: string, model: string, screenshotBase64?: string): Promise<string> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  // System message with cache_control on the last block — Anthropic caches
+  // the static instructions (~2500 tokens) so repeated calls pay 10% input cost.
+  const system: Anthropic.Messages.TextBlockParam[] = [
+    {
+      type: "text",
+      text: systemPrompt,
+      cache_control: { type: "ephemeral" },
+    } as Anthropic.Messages.TextBlockParam & { cache_control: { type: string } },
+  ];
 
   const content: Anthropic.ContentBlockParam[] = [];
   if (screenshotBase64) {
@@ -295,11 +313,12 @@ async function callAnthropic(prompt: string, model: string, screenshotBase64?: s
       source: { type: "base64", media_type: "image/webp", data: screenshotBase64 },
     });
   }
-  content.push({ type: "text", text: prompt });
+  content.push({ type: "text", text: userMessage });
 
   const response = await client.messages.create({
     model,
     max_tokens: 4000,
+    system,
     messages: [{ role: "user", content }],
   });
   const block = response.content[0];
@@ -358,13 +377,14 @@ export async function analyzePost(
 ): Promise<{ result: AnalysisResult; model: string }> {
   const provider = process.env.ANALYSIS_PROVIDER || "openai";
   const model = process.env.ANALYSIS_MODEL || "gpt-5-mini";
-  const prompt = buildPrompt(title, url, pageContent, storyText, readmeContent, !!screenshotBase64);
+  const systemPrompt = buildSystemPrompt();
+  const userMessage = buildUserMessage(title, url, pageContent, storyText, readmeContent, !!screenshotBase64);
 
   let raw: string;
   if (provider === "anthropic") {
-    raw = await callAnthropic(prompt, model, screenshotBase64);
+    raw = await callAnthropic(systemPrompt, userMessage, model, screenshotBase64);
   } else {
-    raw = await callOpenAI(prompt, model, screenshotBase64);
+    raw = await callOpenAI(systemPrompt, userMessage, model, screenshotBase64);
   }
 
   const result = parseResult(raw);

@@ -19,7 +19,7 @@ import { loadScreenshot } from "../src/lib/fetchers";
 import path from "path";
 import dotenv from "dotenv";
 
-dotenv.config({ path: path.join(process.cwd(), ".env.local") });
+dotenv.config({ path: path.join(process.cwd(), ".env.local"), override: true });
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "showhn.db");
 const sqlite = new Database(DB_PATH);
