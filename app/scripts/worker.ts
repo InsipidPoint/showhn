@@ -13,6 +13,7 @@ import { eq, and, isNotNull } from "drizzle-orm";
 import { chromium, type Browser } from "playwright";
 import * as schema from "../src/lib/db/schema";
 import { analyzePost, tierToPickScore } from "../src/lib/ai/llm";
+import { fetchPageContent, parseGitHubRepo, fetchGitHubReadme, loadScreenshot } from "../src/lib/fetchers";
 import {
   dequeueTask,
   completeTask,
@@ -56,15 +57,9 @@ sqlite.exec(`
 `);
 
 // Migration: ensure columns exist
-for (const col of ["pick_reason TEXT", "pick_score INTEGER", "tier TEXT", "vibe_tags TEXT", "strengths TEXT", "weaknesses TEXT"]) {
+for (const col of ["pick_reason TEXT", "pick_score INTEGER", "tier TEXT", "vibe_tags TEXT", "strengths TEXT", "weaknesses TEXT", "similar_to TEXT"]) {
   try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN ${col}`); } catch { /* exists */ }
 }
-try {
-  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN strengths TEXT`);
-} catch { /* column already exists */ }
-try {
-  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN weaknesses TEXT`);
-} catch { /* column already exists */ }
 
 // Screenshot config
 const SCREENSHOT_DIR = path.join(process.cwd(), "public", "screenshots");
@@ -223,36 +218,6 @@ async function processScreenshot(task: schema.TaskQueue): Promise<void> {
 
 // ─── AI Analysis Processing ─────────────────────────────────────────────────
 
-async function fetchPageContent(url: string): Promise<string> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; HNShowcase/1.0; +https://hnshowcase.com)",
-        Accept: "text/html,application/xhtml+xml",
-      },
-    });
-    clearTimeout(timeout);
-
-    if (!res.ok) return "";
-    const html = await res.text();
-
-    return html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 5000);
-  } catch {
-    return "";
-  }
-}
-
 async function processAnalysis(task: schema.TaskQueue): Promise<void> {
   const post = db
     .select({
@@ -291,10 +256,8 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
     }
 
     // Load existing screenshot from disk for vision analysis
-    let screenshotBase64: string | undefined;
-    const screenshotPath = path.join(SCREENSHOT_DIR, `${post.id}.webp`);
-    if (fs.existsSync(screenshotPath)) {
-      screenshotBase64 = fs.readFileSync(screenshotPath).toString("base64");
+    const screenshotBase64 = loadScreenshot(post.id);
+    if (screenshotBase64) {
       console.log(`  [analyze] Loaded screenshot for vision (${post.id})`);
     }
 
@@ -351,33 +314,6 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
     failTask(db, task.id, (err as Error).message);
     console.error(`  [analyze] ✗ Post ${post.id}: ${(err as Error).message}`);
   }
-}
-
-// ─── GitHub README Fetching ──────────────────────────────────────────────────
-
-function parseGitHubRepo(url: string): { owner: string; repo: string } | null {
-  const match = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/?$/);
-  if (!match) return null;
-  return { owner: match[1], repo: match[2] };
-}
-
-async function fetchGitHubReadme(owner: string, repo: string): Promise<string> {
-  for (const branch of ["main", "master"]) {
-    try {
-      const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/README.md`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (res.ok) {
-        const text = await res.text();
-        return text.slice(0, 5000);
-      }
-    } catch {
-      // try next branch
-    }
-  }
-  return "";
 }
 
 // ─── Combined Process (Screenshot + Analysis) ───────────────────────────────
@@ -500,10 +436,7 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
     }
 
     // Load screenshot from disk for vision analysis
-    let screenshotBase64: string | undefined;
-    if (screenshotSuccess && fs.existsSync(screenshotPath)) {
-      screenshotBase64 = fs.readFileSync(screenshotPath).toString("base64");
-    }
+    const screenshotBase64 = screenshotSuccess ? loadScreenshot(post.id) : undefined;
 
     const { result, model } = await analyzePost(
       post.title,
