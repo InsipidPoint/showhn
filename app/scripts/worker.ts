@@ -22,6 +22,7 @@ import {
 } from "../src/lib/queue";
 import path from "path";
 import fs from "fs";
+import sharp from "sharp";
 import dotenv from "dotenv";
 
 // Load env
@@ -87,6 +88,19 @@ const SCREENSHOT_TIMEOUT = parseInt(
   10
 );
 const VIEWPORT = { width: 1280, height: 800 };
+const THUMB_WIDTH = 640;
+
+async function generateThumbnail(screenshotPath: string): Promise<void> {
+  const thumbPath = screenshotPath.replace(/\.webp$/, "_thumb.webp");
+  try {
+    await sharp(screenshotPath)
+      .resize(THUMB_WIDTH)
+      .webp({ quality: 80 })
+      .toFile(thumbPath);
+  } catch (err) {
+    console.error(`  [thumbnail] Failed for ${path.basename(screenshotPath)}:`, (err as Error).message);
+  }
+}
 
 // Worker config
 const POLL_INTERVAL = parseInt(process.env.WORKER_POLL_INTERVAL || "2000", 10);
@@ -154,11 +168,17 @@ async function takeScreenshot(
     // Extra settle time for CSS animations, lazy images, hydration
     await page.waitForTimeout(1500);
 
+    // Capture as PNG (Playwright doesn't support WebP), then convert
+    const tmpPng = screenshotPath + ".tmp.png";
     await page.screenshot({
-      path: screenshotPath,
+      path: tmpPng,
       type: "png",
       clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
     });
+    await sharp(tmpPng).webp({ quality: 85 }).toFile(screenshotPath);
+    fs.unlinkSync(tmpPng);
+
+    await generateThumbnail(screenshotPath);
 
     return true;
   } catch (err) {
@@ -433,11 +453,16 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
     // Take screenshot only if we don't have one already
     if (!hasExistingScreenshot) {
       try {
+        // Capture as PNG (Playwright doesn't support WebP), then convert
+        const tmpPng = screenshotPath + ".tmp.png";
         await page.screenshot({
-          path: screenshotPath,
+          path: tmpPng,
           type: "png",
           clip: { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height },
         });
+        await sharp(tmpPng).webp({ quality: 85 }).toFile(screenshotPath);
+        fs.unlinkSync(tmpPng);
+        await generateThumbnail(screenshotPath);
         screenshotSuccess = true;
       } catch (err) {
         console.error(`  [process] Screenshot failed for post ${post.id}:`, (err as Error).message);
