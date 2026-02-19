@@ -114,14 +114,20 @@ TIER GUIDE — read all five before deciding. When in doubt, go lower.
   banger: Clear "oh that's cool" moment that most developers would appreciate. Needs both
           an interesting idea AND strong execution — not either/or. The project must do
           something that isn't already well-served by established tools in the space.
+          A complex architecture on a common problem is not enough — sophistication is
+          expected, not a differentiator. If you've seen three similar tools this week
+          on HN, it's solid no matter how well-built this one is.
           If you're debating between banger and solid, it's a solid.
-  solid:  Competent project that does what it says. Interesting to its niche, reasonable
-          execution. You'd use it if you had the problem but wouldn't go out of your way
-          to tell someone about it.
+  solid:  Competent project with at least one interesting angle — a clever technique, a
+          fresh take on the problem, or a notably well-crafted implementation. You'd use
+          it if you had the problem but wouldn't go out of your way to tell someone.
+          If you can't name one specific thing that's *interesting*, it's mid.
   mid:    Works but doesn't stand out. Applies to: derivative idea where a well-known tool
           already does this, unremarkable execution, crowded category with no clear
           differentiation, or an embryonic product competing against established tools.
           A README full of buzzwords without matching implementation quality belongs here.
+          Most "yet another X" projects belong here, even if competently built.
+          Mid is not an insult — it's the honest middle of the bell curve.
   pass:   No substance. Generic, broken, tutorial-level clone, empty landing page, blog
           post masquerading as a product, or a feature count without real depth (e.g. "100+
           tools" that each wrap a library function).
@@ -140,6 +146,57 @@ TIER REFERENCE EXAMPLES — use these to calibrate your judgment:
   pass:   "Free Browser Dev Tools" — JSON formatter, base64 encoder, JWT decoder on a
           GitHub Pages site. Works fine but CyberChef and 100 identical sites exist.
           Nothing here worth curating = pass.
+
+COMMON FALSE POSITIVES — these look like bangers but aren't:
+  Complex architecture, crowded category → solid:
+    "CodeGraph CLI" — tree-sitter AST + SQLite graph + vector embeddings + multi-agent
+    tools for codebase Q&A. Sounds impressive, but "chat with your codebase" has dozens
+    of tools (Cursor, Continue, Sourcegraph Cody, etc.). Layering more tech onto a
+    solved problem isn't a "cool moment" — it's table stakes. Solid.
+  Orchestration of existing tools → solid:
+    "tspub" — bundles esbuild, type-checking, and npm publish into one CLI with
+    validation gates and auto-rollback. Useful, genuinely good DX — but it's wiring
+    together things that already exist. Nobody would text this to a friend. Solid.
+  AI-adjacent wrapper → solid:
+    "iherb-CLI" — headless Chrome scraping a supplement store, outputs markdown for
+    LLM agents. Smart hack, but it's a scraper for one website. "AI-optimized" doesn't
+    automatically upgrade the tier. Solid.
+  Pretty product in a crowded space → solid:
+    "Palettepoint.com" — AI color palettes from text descriptions or images, with CSS
+    and Tailwind export. Clean, but Coolors, Adobe Color, Khroma and several AI
+    alternatives already exist. Nice product, no differentiator. Solid.
+  Fun novelty, no staying power → solid:
+    "Google Maps in Your Terminal" — renders vector tiles as ASCII art, searchable and
+    pannable. Technically neat and fun to poke at for five minutes, but it's a novelty
+    with no real use case. If your own honest take includes "mostly a novelty," that's
+    solid, not banger.
+  Your own review undermines the tier → downgrade:
+    If your highlight says "needs more examples," "unclear implementation," "will depend
+    on adoption," or "more of an experiment" — trust your own caveats. A project that
+    needs caveats in every sentence isn't giving you an "oh that's cool" moment.
+
+SOLID vs MID — many projects rated solid should actually be mid. Ask: "does this project
+have at least one interesting idea or angle, even if niche?" If yes, solid. If it's
+competent but you can't name a single thing that's *interesting* about it, that's mid.
+  These look like solids but are actually mid:
+  Free/no-signup clone of an established tool → mid:
+    "AI Background Remover" — no signup, no watermarks, runs in browser. Clean UX, but
+    remove.bg, PhotoRoom, and a dozen clones already do this. Being free doesn't make
+    an idea interesting. Mid.
+  Boilerplate / starter kit / reference implementation → mid:
+    "Production-Ready NestJS Back End" — multi-tenancy, event-driven, OpenTelemetry.
+    These are standard patterns for SaaS backends. A well-organized teaching repo is
+    not a product — it's a template. Mid.
+  GUI wrapper around a CLI tool → mid:
+    "Macabolic" — native macOS UI for yt-dlp. SwiftUI + Menu Bar mode is nice, but
+    yt-dlp does the work. Wrapping an existing tool in a GUI is expected, not
+    interesting. Mid.
+  Curated list / directory / collection → mid:
+    "Shopify Sections" — drop-in Liquid components for Shopify themes. Useful, but
+    it's a collection of boilerplate. No novel technique, no "oh cool" moment. Mid.
+  Calculator / single-page utility → mid:
+    "How Much Ad Money Targets You" — enter your age, get a dollar estimate. Viral
+    landing page, but there's no depth, no tool, no technology worth discussing. Mid.
 
 VIBE TAGS — pick 1-3 that genuinely fit from this list (don't force them):
   "Rabbit Hole"      — You'll lose hours exploring this
