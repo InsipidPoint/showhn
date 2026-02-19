@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import Link from "next/link";
 import type { Post, AiAnalysis } from "@/lib/db/schema";
-import { TIERS, TIER_LABELS, TIER_DOTS, type Tier } from "@/lib/ai/llm";
+import { TIERS, TIER_LABELS, TIER_DOTS, type Tier, getVibeTagColor } from "@/lib/ai/llm";
 
 function safeParseTier(value: string | null | undefined): Tier | null {
   if (!value) return null;
@@ -52,23 +52,6 @@ const defaultTierStyle = { ...tierStyles.mid, accent: "" };
 
 function getTierStyle(tier: string | null | undefined) {
   return tierStyles[tier || ""] || defaultTierStyle;
-}
-
-// Vibe tag colors — rotate through a set of fun muted colors
-const vibeTagColors = [
-  "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300",
-  "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
-  "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
-  "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-  "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
-];
-
-function vibeTagColor(tag: string): string {
-  // Deterministic color based on tag content
-  let hash = 0;
-  for (let i = 0; i < tag.length; i++) hash = ((hash << 5) - hash + tag.charCodeAt(i)) | 0;
-  return vibeTagColors[Math.abs(hash) % vibeTagColors.length];
 }
 
 function slugify(title: string): string {
@@ -135,7 +118,7 @@ export function PostCard({
           )}
           {analysis?.category && (
             <div className="absolute top-2 left-2">
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-background/85 backdrop-blur-sm border border-border/50 shadow-sm">
+              <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-background/85 backdrop-blur-sm border border-border/50 shadow-sm">
                 {analysis.category}
               </Badge>
             </div>
@@ -175,7 +158,7 @@ export function PostCard({
               {vibeTags.map((tag) => (
                 <span
                   key={tag}
-                  className={`inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium ${vibeTagColor(tag)}`}
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${getVibeTagColor(tag)}`}
                 >
                   {tag}
                 </span>
