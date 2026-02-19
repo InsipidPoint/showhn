@@ -20,6 +20,14 @@ export const TIER_LABELS: Record<Tier, string> = {
   pass: "Pass",
 };
 
+export const TIER_DOTS: Record<Tier, string> = {
+  gem: "●●●●",
+  banger: "●●●",
+  solid: "●●",
+  mid: "●",
+  pass: "○",
+};
+
 /** Fixed pick_score per tier — used for DB sorting only */
 const TIER_SCORES: Record<Tier, number> = {
   gem: 95,

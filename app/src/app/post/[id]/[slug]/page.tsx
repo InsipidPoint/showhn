@@ -3,7 +3,7 @@ import { triggerRefreshIfStale } from "@/lib/refresh";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TIERS, TIER_LABELS, type Tier } from "@/lib/ai/llm";
+import { TIERS, TIER_LABELS, TIER_DOTS, type Tier } from "@/lib/ai/llm";
 
 function safeParseTier(value: string | null | undefined): Tier | null {
   if (!value) return null;
@@ -70,7 +70,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 const tierBadgeStyles: Record<string, string> = {
   gem: "bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900/50 dark:text-violet-200 dark:border-violet-700",
   banger: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-200 dark:border-amber-700",
-  solid: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-200 dark:border-emerald-700",
+  solid: "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900/50 dark:text-sky-200 dark:border-sky-700",
   mid: "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-600",
   pass: "bg-zinc-50 text-zinc-500 border-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700",
 };
@@ -236,7 +236,8 @@ export default async function PostPage({ params }: Props) {
             {(tier || vibeTags.length > 0) && (
               <div className="flex flex-wrap items-center gap-2">
                 {tier && (
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border ${tierBadgeStyles[tier] || tierBadgeStyles.mid}`}>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border ${tierBadgeStyles[tier] || tierBadgeStyles.mid}`}>
+                    <span className="tracking-tighter">{TIER_DOTS[tier]}</span>
                     {TIER_LABELS[tier] || tier}
                   </span>
                 )}

@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import Link from "next/link";
 import type { Post, AiAnalysis } from "@/lib/db/schema";
-import { TIERS, TIER_LABELS, type Tier } from "@/lib/ai/llm";
+import { TIERS, TIER_LABELS, TIER_DOTS, type Tier } from "@/lib/ai/llm";
 
 function safeParseTier(value: string | null | undefined): Tier | null {
   if (!value) return null;
@@ -15,35 +15,40 @@ function safeParseJsonArray(json: string | null | undefined): string[] {
 }
 
 // Tier styling — each tier gets a distinct color personality
-const tierStyles: Record<string, { badge: string; border: string; text: string }> = {
+const tierStyles: Record<string, { badge: string; border: string; text: string; accent: string }> = {
   gem: {
     badge: "bg-violet-500/90 text-white dark:bg-violet-400/90 dark:text-violet-950",
-    border: "border-violet-400/60 dark:border-violet-400/60",
+    border: "border-violet-400/60",
     text: "text-violet-600 dark:text-violet-400",
+    accent: "border-t-[3px] border-t-violet-400 dark:border-t-violet-400",
   },
   banger: {
     badge: "bg-amber-500/90 text-white dark:bg-amber-400/90 dark:text-amber-950",
-    border: "border-amber-400/60 dark:border-amber-400/60",
+    border: "border-amber-400/60",
     text: "text-amber-600 dark:text-amber-400",
+    accent: "border-t-[3px] border-t-amber-400 dark:border-t-amber-400",
   },
   solid: {
-    badge: "bg-emerald-500/90 text-white dark:bg-emerald-400/90 dark:text-emerald-950",
-    border: "border-emerald-400/60 dark:border-emerald-400/60",
-    text: "text-emerald-600 dark:text-emerald-400",
+    badge: "bg-sky-500/90 text-white dark:bg-sky-400/90 dark:text-sky-950",
+    border: "border-sky-400/60",
+    text: "text-sky-600 dark:text-sky-400",
+    accent: "border-t-2 border-t-sky-300 dark:border-t-sky-500",
   },
   mid: {
     badge: "bg-zinc-400/90 text-white dark:bg-zinc-500/90 dark:text-zinc-200",
-    border: "border-zinc-400/60 dark:border-zinc-500/60",
+    border: "border-zinc-300/60",
     text: "text-zinc-500 dark:text-zinc-400",
+    accent: "",
   },
   pass: {
     badge: "bg-zinc-300/90 text-zinc-600 dark:bg-zinc-600/90 dark:text-zinc-300",
-    border: "border-zinc-300/60 dark:border-zinc-600/60",
+    border: "border-zinc-300/60",
     text: "text-zinc-400 dark:text-zinc-500",
+    accent: "",
   },
 };
 
-const defaultTierStyle = tierStyles.mid;
+const defaultTierStyle = { ...tierStyles.mid, accent: "" };
 
 function getTierStyle(tier: string | null | undefined) {
   return tierStyles[tier || ""] || defaultTierStyle;
@@ -109,12 +114,12 @@ export function PostCard({
 
   return (
     <Link href={href} className="group block">
-      <article className="rounded-lg border border-border bg-card overflow-hidden shadow-sm transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5 dark:shadow-none dark:hover:shadow-md dark:hover:shadow-primary/5 dark:hover:border-primary/20">
+      <article className={`rounded-lg border border-border bg-card overflow-hidden shadow-sm transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5 dark:shadow-none dark:hover:shadow-md dark:hover:shadow-primary/5 dark:hover:border-primary/20 ${tierStyle.accent}`}>
         {/* Screenshot */}
         <div className="relative aspect-[16/10] bg-muted overflow-hidden">
           {post.hasScreenshot ? (
             <Image
-              src={`/screenshots/${post.id}.webp`}
+              src={`/screenshots/${post.id}_thumb.webp`}
               alt={displayTitle}
               fill
               className="object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
@@ -135,9 +140,10 @@ export function PostCard({
               </Badge>
             </div>
           )}
-          {tier && tier !== "mid" && tier !== "pass" && (
+          {tier && (
             <div className="absolute top-2 right-2">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase shadow-sm backdrop-blur-sm ${tierStyle.badge}`}>
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase shadow-sm backdrop-blur-sm ${tierStyle.badge}`}>
+                <span className="tracking-tighter">{TIER_DOTS[tier]}</span>
                 {TIER_LABELS[tier]}
               </span>
             </div>
