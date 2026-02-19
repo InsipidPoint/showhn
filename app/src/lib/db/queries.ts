@@ -109,12 +109,11 @@ export async function searchPosts(
     .prepare(
       `SELECT p.*, a.post_id as a_post_id, a.summary as a_summary, a.category as a_category,
               a.tech_stack as a_tech_stack, a.target_audience as a_target_audience,
-              a.vibe_score as a_vibe_score, a.interest_score as a_interest_score,
-              a.comment_sentiment as a_comment_sentiment, a.tags as a_tags,
-              a.novelty_score as a_novelty_score, a.ambition_score as a_ambition_score,
-              a.usefulness_score as a_usefulness_score, a.pick_reason as a_pick_reason,
+              a.tags as a_tags, a.pick_reason as a_pick_reason,
               a.pick_score as a_pick_score,
               a.tier as a_tier, a.vibe_tags as a_vibe_tags,
+              a.strengths as a_strengths, a.weaknesses as a_weaknesses,
+              a.similar_to as a_similar_to,
               a.analyzed_at as a_analyzed_at, a.model as a_model
        FROM posts_fts fts
        JOIN posts p ON p.id = fts.rowid
@@ -147,17 +146,14 @@ export async function searchPosts(
           category: r.a_category,
           techStack: r.a_tech_stack,
           targetAudience: r.a_target_audience,
-          vibeScore: r.a_vibe_score,
-          interestScore: r.a_interest_score,
-          commentSentiment: r.a_comment_sentiment,
           tags: r.a_tags,
-          noveltyScore: r.a_novelty_score,
-          ambitionScore: r.a_ambition_score,
-          usefulnessScore: r.a_usefulness_score,
           pickReason: r.a_pick_reason,
           pickScore: r.a_pick_score,
           tier: r.a_tier,
           vibeTags: r.a_vibe_tags,
+          strengths: r.a_strengths,
+          weaknesses: r.a_weaknesses,
+          similarTo: r.a_similar_to,
           analyzedAt: r.a_analyzed_at,
           model: r.a_model,
         }

@@ -16,7 +16,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import OpenAI from "openai";
 import * as schema from "../src/lib/db/schema";
-import { analyzePost, tierToPickScore, parseTier, parseVibeTags, TIERS, type Tier } from "../src/lib/ai/llm";
+import { analyzePost, tierToPickScore, parseTier, parseVibeTags, TIERS, type Tier, type AnalysisResult } from "../src/lib/ai/llm";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
@@ -33,6 +33,8 @@ const SCREENSHOT_DIR = path.join(process.cwd(), "public", "screenshots");
 // Migration: add new columns if missing
 try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN tier TEXT`); } catch { /* exists */ }
 try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN vibe_tags TEXT`); } catch { /* exists */ }
+try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN strengths TEXT`); } catch { /* exists */ }
+try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN weaknesses TEXT`); } catch { /* exists */ }
 
 const RATE_DELAY = parseInt(process.env.RESCORE_DELAY || "500", 10);
 
@@ -47,9 +49,7 @@ type PostRow = {
   readme_content: string | null;
   summary: string | null;
   category: string | null;
-  tech_stack: string | null;
   target_audience: string | null;
-  tags: string | null;
   pick_reason: string | null;
 };
 
@@ -58,6 +58,7 @@ type ScoreResult = {
   tier: Tier;
   vibe_tags: string[];
   highlight: string;
+  result?: AnalysisResult;
 };
 
 function parseArgs() {
@@ -93,18 +94,13 @@ function parseArgs() {
 // ─── Batch mode (text-only, multiple posts per call) ─────────────────────────
 
 function formatPost(post: PostRow, idx: number): string {
-  const techStack = post.tech_stack ? JSON.parse(post.tech_stack) : [];
-  const tags = post.tags ? JSON.parse(post.tags) : [];
-
   return `[PROJECT ${idx + 1}] (id: ${post.id})
 Title: ${post.title}
 URL: ${post.url || "N/A (text-only post)"}
 HN: ${post.points} pts, ${post.comments} comments
 ${post.summary ? `Summary: ${post.summary}` : ""}
 ${post.category ? `Category: ${post.category}` : ""}
-${techStack.length ? `Tech: ${techStack.join(", ")}` : ""}
 ${post.target_audience ? `Audience: ${post.target_audience}` : ""}
-${tags.length ? `Tags: ${tags.join(", ")}` : ""}
 ${post.story_text ? `Description: ${post.story_text.replace(/<[^>]*>/g, " ").slice(0, 300)}` : ""}`.trim();
 }
 
@@ -118,15 +114,16 @@ ${projectList}
 Return a JSON object with a "scores" array, one entry per project IN ORDER:
 {
   "scores": [
-    { "id": <post_id>, "tier": "gem|banger|solid|mid|pass", "vibe_tags": ["up to 3 tags"], "highlight": "2-3 sentence editorial take" },
+    { "id": <post_id>, "tier": "gem|banger|solid|mid|pass", "vibe_tags": ["up to 3 tags"], "highlight": "One sentence that hooks or dismisses (~25 words max)", "strengths": ["1-3 bullets, ~12 words each"], "weaknesses": ["1-2 bullets, ~12 words each"], "similar_to": ["1-3 existing competing tools/products, or empty array"] },
     ...
   ]
 }
 
 TIER GUIDE — read all five before deciding. When in doubt, go lower.
-  gem:    You'd text this link to a friend right now. Requires genuinely novel idea AND
-          impressive execution AND broad appeal — all three together. If debating gem
-          vs banger, it's a banger.
+  gem:    The best of Show HN — you'd send this link to a friend unprompted. Novel concept
+          or approach, strong execution, and genuine "wow" factor. This is rare (roughly
+          1 in 30-40 projects) but it should actually get used when something is clearly
+          a cut above banger. If a project makes you think "this is special," trust that.
   banger: Clear "oh that's cool" moment that most developers would appreciate. Needs both
           an interesting idea AND strong execution — not either/or. The project must do
           something that isn't already well-served by established tools in the space.
@@ -149,7 +146,7 @@ TIER GUIDE — read all five before deciding. When in doubt, go lower.
           tools" that each wrap a library function).
 
 REFERENCE EXAMPLES:
-  gem:    "Windows 98½" — pixel-accurate retro desktop running real sites. Novel + masterful craft + viral = gem.
+  gem:    Real-time collaborative code editor in the browser with CRDTs, built-in terminal, sub-50ms sync. Novel architecture + deep engineering + broad appeal = gem.
   banger: "HiddenState" — ML news via cross-source convergence scoring. Clever + useful but still a digest = banger.
   solid:  "ContextLedger" — AI session context handoff CLI. Real problem, decent engineering, no "oh cool" moment = solid.
   mid:    "Klovr" — HTML-to-Markdown for LLMs. JinaAI/Firecrawl/Pandoc already do this well = mid.
@@ -210,12 +207,12 @@ VIBE TAGS — pick 1-3 that genuinely fit (don't force them):
   "Rabbit Hole" "Dark Horse" "Eye Candy" "Wizardry" "Big Brain" "Crowd Pleaser"
   "Niche Gem" "Bold Bet" "Ship It" "Zero to One" "Cozy" "Slick" "Solve My Problem"
 
-HIGHLIGHT — 2-3 sentences, specific, opinionated. This is the most important field.
-  NEVER start with "A [adjective] [noun] that..." — vary your sentence structure.
+HIGHLIGHT — one sentence (~25 words max) that hooks or dismisses.
+  Strengths/weaknesses carry the detail — the highlight just makes someone click or skip.
+  NEVER start with "A [adjective] [noun] that...".
   BANNED phrases: "polished", "well-executed", "addresses a clear need", "fills a real
   gap", "production-ready", "developer-focused", "seamlessly", "thoughtful", "leverages".
-  Name actual features or techniques. Have a point of view.
-  For mid/pass: be direct about why it doesn't stand out.
+  Be specific: name a feature, technique, or competitor. Have a point of view. For mid/pass: be direct about why.
 
 Don't penalize good enterprise/infra projects — a well-built database tool solving real
 pain is a banger even if it's not "fun."
@@ -289,6 +286,7 @@ async function rescoreWithVision(post: PostRow): Promise<ScoreResult | null> {
       tier: result.tier,
       vibe_tags: result.vibe_tags,
       highlight: result.highlight,
+      result,
     };
   } catch (err) {
     console.error(`  ✗ ${post.id}: ${(err as Error).message}`);
@@ -298,19 +296,45 @@ async function rescoreWithVision(post: PostRow): Promise<ScoreResult | null> {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-function saveResult(postId: number, result: ScoreResult, existingPickReason: string | null) {
-  const pickScore = tierToPickScore(result.tier);
-  db.update(schema.aiAnalysis)
-    .set({
-      tier: result.tier,
-      vibeTags: JSON.stringify(result.vibe_tags),
-      pickReason: result.highlight || existingPickReason || "",
-      pickScore,
-      analyzedAt: Math.floor(Date.now() / 1000),
-      model: process.env.ANALYSIS_MODEL || "gpt-5-mini",
-    })
-    .where(eq(schema.aiAnalysis.postId, postId))
-    .run();
+function saveResult(postId: number, score: ScoreResult, existingPickReason: string | null) {
+  const pickScore = tierToPickScore(score.tier);
+  const now = Math.floor(Date.now() / 1000);
+  const model = process.env.ANALYSIS_MODEL || "gpt-5-mini";
+  const r = score.result;
+
+  if (r) {
+    // Full result available (vision mode) — save all fields
+    db.update(schema.aiAnalysis)
+      .set({
+        summary: r.summary,
+        category: r.category,
+        targetAudience: r.target_audience,
+        tier: r.tier,
+        vibeTags: JSON.stringify(r.vibe_tags),
+        pickReason: r.highlight || existingPickReason || "",
+        pickScore,
+        strengths: JSON.stringify(r.strengths),
+        weaknesses: JSON.stringify(r.weaknesses),
+        similarTo: JSON.stringify(r.similar_to),
+        analyzedAt: now,
+        model,
+      })
+      .where(eq(schema.aiAnalysis.postId, postId))
+      .run();
+  } else {
+    // Batch mode — only tier/vibe_tags/highlight available
+    db.update(schema.aiAnalysis)
+      .set({
+        tier: score.tier,
+        vibeTags: JSON.stringify(score.vibe_tags),
+        pickReason: score.highlight || existingPickReason || "",
+        pickScore,
+        analyzedAt: now,
+        model,
+      })
+      .where(eq(schema.aiAnalysis.postId, postId))
+      .run();
+  }
 }
 
 async function main() {
@@ -319,7 +343,7 @@ async function main() {
   let query = `
     SELECT p.id, p.title, p.url, p.points, p.comments, p.story_text,
            p.page_content, p.readme_content,
-           a.summary, a.category, a.tech_stack, a.target_audience, a.tags, a.pick_reason
+           a.summary, a.category, a.target_audience, a.pick_reason
     FROM posts p
     JOIN ai_analysis a ON a.post_id = p.id
   `;

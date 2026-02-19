@@ -31,6 +31,9 @@ const SCREENSHOT_DIR = path.join(process.cwd(), "public", "screenshots");
 // Migration: add new columns if missing
 try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN tier TEXT`); } catch { /* exists */ }
 try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN vibe_tags TEXT`); } catch { /* exists */ }
+try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN strengths TEXT`); } catch { /* exists */ }
+try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN weaknesses TEXT`); } catch { /* exists */ }
+try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN similar_to TEXT`); } catch { /* exists */ }
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -105,7 +108,9 @@ async function main() {
 
   const updateStmt = sqlite.prepare(`
     UPDATE ai_analysis SET
+      summary = ?, category = ?, target_audience = ?,
       tier = ?, vibe_tags = ?, pick_reason = ?, pick_score = ?,
+      strengths = ?, weaknesses = ?, similar_to = ?,
       analyzed_at = ?, model = ?
     WHERE post_id = ?
   `);
@@ -137,10 +142,16 @@ async function main() {
 
         if (!flags.dryRun) {
           updateStmt.run(
+            result.summary,
+            result.category,
+            result.target_audience,
             result.tier,
             JSON.stringify(result.vibe_tags),
             result.highlight || post.pick_reason || "",
             pickScore,
+            JSON.stringify(result.strengths),
+            JSON.stringify(result.weaknesses),
+            JSON.stringify(result.similar_to),
             Math.floor(Date.now() / 1000),
             model,
             post.id

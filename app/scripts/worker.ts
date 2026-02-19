@@ -55,30 +55,15 @@ sqlite.exec(`
   CREATE INDEX IF NOT EXISTS idx_queue_post_id ON task_queue(post_id);
 `);
 
-// Migration: add new AI analysis columns
+// Migration: ensure columns exist
+for (const col of ["pick_reason TEXT", "pick_score INTEGER", "tier TEXT", "vibe_tags TEXT", "strengths TEXT", "weaknesses TEXT"]) {
+  try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN ${col}`); } catch { /* exists */ }
+}
 try {
-  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN novelty_score INTEGER`);
+  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN strengths TEXT`);
 } catch { /* column already exists */ }
 try {
-  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN ambition_score INTEGER`);
-} catch { /* column already exists */ }
-try {
-  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN usefulness_score INTEGER`);
-} catch { /* column already exists */ }
-try {
-  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN pick_reason TEXT`);
-} catch { /* column already exists */ }
-try {
-  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN pick_score INTEGER`);
-} catch { /* column already exists */ }
-try {
-  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_analysis_pick_score ON ai_analysis(pick_score)`);
-} catch { /* index already exists */ }
-try {
-  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN tier TEXT`);
-} catch { /* column already exists */ }
-try {
-  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN vibe_tags TEXT`);
+  sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN weaknesses TEXT`);
 } catch { /* column already exists */ }
 
 // Screenshot config
@@ -330,19 +315,14 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
         postId: post.id,
         summary: result.summary,
         category: result.category,
-        techStack: JSON.stringify(result.tech_stack),
         targetAudience: result.target_audience,
-        vibeScore: result.vibe_score,
-        interestScore: result.interest_score,
-        commentSentiment: null,
-        tags: JSON.stringify(result.tags),
-        noveltyScore: result.novelty_score,
-        ambitionScore: result.ambition_score,
-        usefulnessScore: result.usefulness_score,
         pickReason: result.highlight,
         pickScore,
         tier: result.tier,
         vibeTags: JSON.stringify(result.vibe_tags),
+        strengths: JSON.stringify(result.strengths),
+        weaknesses: JSON.stringify(result.weaknesses),
+        similarTo: JSON.stringify(result.similar_to),
         analyzedAt: now,
         model,
       })
@@ -351,18 +331,14 @@ async function processAnalysis(task: schema.TaskQueue): Promise<void> {
         set: {
           summary: result.summary,
           category: result.category,
-          techStack: JSON.stringify(result.tech_stack),
           targetAudience: result.target_audience,
-          vibeScore: result.vibe_score,
-          interestScore: result.interest_score,
-          tags: JSON.stringify(result.tags),
-          noveltyScore: result.novelty_score,
-          ambitionScore: result.ambition_score,
-          usefulnessScore: result.usefulness_score,
           pickReason: result.highlight,
           pickScore,
           tier: result.tier,
           vibeTags: JSON.stringify(result.vibe_tags),
+          strengths: JSON.stringify(result.strengths),
+          weaknesses: JSON.stringify(result.weaknesses),
+          similarTo: JSON.stringify(result.similar_to),
           analyzedAt: now,
           model,
         },
@@ -546,19 +522,14 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
         postId: post.id,
         summary: result.summary,
         category: result.category,
-        techStack: JSON.stringify(result.tech_stack),
         targetAudience: result.target_audience,
-        vibeScore: result.vibe_score,
-        interestScore: result.interest_score,
-        commentSentiment: null,
-        tags: JSON.stringify(result.tags),
-        noveltyScore: result.novelty_score,
-        ambitionScore: result.ambition_score,
-        usefulnessScore: result.usefulness_score,
         pickReason: result.highlight,
         pickScore,
         tier: result.tier,
         vibeTags: JSON.stringify(result.vibe_tags),
+        strengths: JSON.stringify(result.strengths),
+        weaknesses: JSON.stringify(result.weaknesses),
+        similarTo: JSON.stringify(result.similar_to),
         analyzedAt: now,
         model,
       })
@@ -567,18 +538,14 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
         set: {
           summary: result.summary,
           category: result.category,
-          techStack: JSON.stringify(result.tech_stack),
           targetAudience: result.target_audience,
-          vibeScore: result.vibe_score,
-          interestScore: result.interest_score,
-          tags: JSON.stringify(result.tags),
-          noveltyScore: result.novelty_score,
-          ambitionScore: result.ambition_score,
-          usefulnessScore: result.usefulness_score,
           pickReason: result.highlight,
           pickScore,
           tier: result.tier,
           vibeTags: JSON.stringify(result.vibe_tags),
+          strengths: JSON.stringify(result.strengths),
+          weaknesses: JSON.stringify(result.weaknesses),
+          similarTo: JSON.stringify(result.similar_to),
           analyzedAt: now,
           model,
         },

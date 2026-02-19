@@ -55,21 +55,39 @@ export const VIBE_TAGS = [
 
 export type VibeTag = (typeof VIBE_TAGS)[number];
 
+/** Semantic colors for each vibe tag — light + dark mode bg/text/border classes */
+export const VIBE_TAG_COLORS: Record<string, string> = {
+  "Wizardry":         "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700",
+  "Eye Candy":        "bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-900/40 dark:text-pink-300 dark:border-pink-700",
+  "Big Brain":        "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700",
+  "Crowd Pleaser":    "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700",
+  "Niche Gem":        "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700",
+  "Bold Bet":         "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700",
+  "Ship It":          "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900/40 dark:text-teal-300 dark:border-teal-700",
+  "Zero to One":      "bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-900/40 dark:text-cyan-300 dark:border-cyan-700",
+  "Cozy":             "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700",
+  "Slick":            "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900/40 dark:text-sky-300 dark:border-sky-700",
+  "Solve My Problem": "bg-lime-100 text-lime-700 border-lime-200 dark:bg-lime-900/40 dark:text-lime-300 dark:border-lime-700",
+  "Rabbit Hole":      "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-700",
+  "Dark Horse":       "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-600",
+};
+
+const VIBE_TAG_FALLBACK = "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800/40 dark:text-zinc-400 dark:border-zinc-700";
+
+export function getVibeTagColor(tag: string): string {
+  return VIBE_TAG_COLORS[tag] || VIBE_TAG_FALLBACK;
+}
+
 export type AnalysisResult = {
   summary: string;
   category: string;
-  tech_stack: string[];
   target_audience: string;
   tier: Tier;
   vibe_tags: string[];
   highlight: string;
-  tags: string[];
-  // Legacy fields — kept for backward compat / DB columns
-  vibe_score: number;
-  interest_score: number;
-  novelty_score: number;
-  ambition_score: number;
-  usefulness_score: number;
+  strengths: string[];
+  weaknesses: string[];
+  similar_to: string[];
   pick_reason: string;
 };
 
@@ -105,20 +123,22 @@ ${readmeContent ? `\nGitHub README (truncated):\n${readmeContent.slice(0, 3000)}
 
 Return ONLY a JSON object with these fields:
 {
-  "summary": "One sentence: what it does and who it's for",
+  "summary": "One sentence for link previews: what this project does, plain and specific (no opinions)",
   "category": "One of: ${CATEGORIES.join(", ")}",
-  "tech_stack": ["detected technologies, frameworks, languages"],
   "target_audience": "Who would use this (e.g. 'Backend developers', 'Small business owners')",
   "tier": "gem | banger | solid | mid | pass",
   "vibe_tags": ["1-3 tags from the allowed list below"],
-  "highlight": "2-3 sentences: your editorial take on this project. What's interesting, what's clever, what's the vibe? Write like you're telling a friend about it. Be specific — mention actual features or techniques, not generic praise.",
-  "tags": ["3-5 descriptive tags beyond the category"]
+  "highlight": "One sentence that makes someone click or skip. Lead with what's interesting or what's not. Specific and opinionated. Max 25 words.",
+  "strengths": ["1-3 bullets, ~12 words each: what's genuinely clever, useful, or well-built"],
+  "weaknesses": ["1-2 bullets, ~12 words each: what's missing, limiting, or already solved elsewhere"],
+  "similar_to": ["1-3 existing tools or products this competes with or closely resembles. Empty array if truly novel."]
 }
 
 TIER GUIDE — read all five before deciding. When in doubt, go lower.
-  gem:    You'd text this link to a friend right now. Requires genuinely novel idea AND
-          impressive execution AND broad appeal — all three together. If you're debating
-          between gem and banger, it's a banger.
+  gem:    The best of Show HN — you'd send this link to a friend unprompted. Novel concept
+          or approach, strong execution, and genuine "wow" factor. This is rare (roughly
+          1 in 30-40 projects) but it should actually get used when something is clearly
+          a cut above banger. If a project makes you think "this is special," trust that.
   banger: Clear "oh that's cool" moment that most developers would appreciate. Needs both
           an interesting idea AND strong execution — not either/or. The project must do
           something that isn't already well-served by established tools in the space.
@@ -141,8 +161,9 @@ TIER GUIDE — read all five before deciding. When in doubt, go lower.
           tools" that each wrap a library function).
 
 TIER REFERENCE EXAMPLES — use these to calibrate your judgment:
-  gem:    "Windows 98½" — pixel-accurate retro desktop that runs real sites. Novel concept,
-          masterful CSS craft, instant viral appeal. All three together = gem.
+  gem:    A real-time collaborative code editor that works entirely in the browser with
+          CRDTs, built-in terminal, and sub-50ms sync. Novel architecture, impressive
+          engineering depth, and immediately useful to a wide audience = gem.
   banger: "HiddenState" — ML news filter using cross-source convergence scoring. Clever
           methodology, real value, but ultimately still a newsletter/digest. Cool idea +
           good execution but not "stop what you're doing and look at this" = banger.
@@ -221,30 +242,20 @@ VIBE TAGS — pick 1-3 that genuinely fit from this list (don't force them):
   "Slick"            — Polished, feels like a real product
   "Solve My Problem" — Immediately useful, fills a real gap
 
-HIGHLIGHT GUIDE — this is the most important field. Make it worth reading.
+HIGHLIGHT — one sentence (~25 words max) that hooks or dismisses.
+  Strengths/weaknesses carry the detail — the highlight just makes someone click or skip.
   Rules:
-  - NEVER start with "A [adjective] [noun] that..." — this sentence formula is banned.
-  - Vary your sentence structure. Mix short punchy sentences with longer ones.
-  - Be specific: name actual features, techniques, or design choices.
-  - Have a point of view. Say what's clever, what's missing, what surprised you.
-  - For mid/pass: be honest and direct about why it doesn't stand out.
-  - 2-3 sentences max. Every word should earn its place.
-  Voice: sharp, opinionated, curious. Like a senior dev who's seen a lot and gets genuinely
-  excited when something is actually good — and isn't polite about the rest.
-  BANNED phrases (never use these): "polished", "well-executed", "addresses a clear need",
-  "fills a real gap", "production-ready", "developer-focused", "seamlessly", "thoughtful",
-  "leverages", "bridges the gap".
-  Good: "Someone spent real time on the CSS — the scrollbar arrows are SVGs, the window
-  chrome has proper inset/outset borders, the startup splash has a working progress bar.
-  Pixel-accurate 1998 nostalgia that somehow runs real sites inside it."
-  Good: "HTML-to-Markdown for LLMs is a solved problem — JinaAI, Firecrawl, and Pandoc
-  all do this. The CSS selector rules for site-specific extraction are a nice touch, but
-  this needs a stronger reason to exist than a faster P99."
-  Good: "Nine layers of architecture including Bayesian preference learning and LightGBM
-  ranking — for a local memory tool. The README is more confident than the implementation
-  evidence justifies."
+  - NEVER start with "A [adjective] [noun] that..."
+  - Be specific: name a feature, technique, or competitor.
+  - Have a point of view.
+  - For mid/pass: be direct about why.
+  Voice: sharp, opinionated, like a senior dev texting a friend.
+  BANNED phrases: "polished", "well-executed", "addresses a clear need", "fills a real gap",
+  "production-ready", "developer-focused", "seamlessly", "thoughtful", "leverages".
+  Good: "Pixel-accurate Win98 nostalgia that somehow runs real sites inside it."
+  Good: "HTML-to-Markdown for LLMs when JinaAI and Firecrawl already exist."
+  Good: "Nine layers of architecture for a local memory tool — the README outpaces the code."
   Bad: "A polished, developer-focused tool that addresses a clear gap in the ecosystem."
-  (banned words, formula sentence, says nothing specific)
 
 Don't penalize good enterprise/infra projects — a well-built database tool solving real
 pain is a banger even if it's not "fun."
@@ -295,10 +306,6 @@ async function callAnthropic(prompt: string, model: string, screenshotBase64?: s
   return block.type === "text" ? block.text : "";
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.round(value)));
-}
-
 /** Convert tier to numeric pick_score for DB sorting */
 export function tierToPickScore(tier: Tier): number {
   return TIER_SCORES[tier] ?? 50;
@@ -327,30 +334,16 @@ function parseResult(raw: string): AnalysisResult {
   const vibe_tags = parseVibeTags(parsed.vibe_tags);
   const highlight = String(parsed.highlight || parsed.pick_reason || "");
 
-  // Legacy sub-scores — derive from tier for backward compat
-  const tierScoreMap: Record<Tier, number> = { gem: 9, banger: 7, solid: 5, mid: 3, pass: 2 };
-  const defaultSubScore = tierScoreMap[tier];
-  const novelty_score = clamp(Number(parsed.novelty_score) || defaultSubScore, 1, 10);
-  const ambition_score = clamp(Number(parsed.craft_score ?? parsed.ambition_score) || defaultSubScore, 1, 10);
-  const usefulness_score = clamp(Number(parsed.appeal_score ?? parsed.usefulness_score) || defaultSubScore, 1, 10);
-  const avgScore = (novelty_score + ambition_score + usefulness_score) / 3;
-  const interest_score = clamp(Math.round(avgScore / 2), 1, 5);
-
   return {
     summary: String(parsed.summary || ""),
     category: CATEGORIES.includes(parsed.category) ? parsed.category : "Other",
-    tech_stack: Array.isArray(parsed.tech_stack) ? parsed.tech_stack.map(String) : [],
     target_audience: String(parsed.target_audience || ""),
     tier,
     vibe_tags,
     highlight,
-    tags: Array.isArray(parsed.tags) ? parsed.tags.map(String).slice(0, 5) : [],
-    // Legacy
-    vibe_score: clamp(Number(parsed.vibe_score) || 3, 1, 5),
-    interest_score,
-    novelty_score,
-    ambition_score,
-    usefulness_score,
+    strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map(String) : [],
+    weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.map(String) : [],
+    similar_to: Array.isArray(parsed.similar_to) ? parsed.similar_to.map(String).slice(0, 3) : [],
     pick_reason: highlight,
   };
 }

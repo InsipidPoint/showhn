@@ -3,7 +3,7 @@ import { triggerRefreshIfStale } from "@/lib/refresh";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TIERS, TIER_LABELS, TIER_DOTS, type Tier } from "@/lib/ai/llm";
+import { TIERS, TIER_LABELS, TIER_DOTS, type Tier, getVibeTagColor } from "@/lib/ai/llm";
 
 function safeParseTier(value: string | null | undefined): Tier | null {
   if (!value) return null;
@@ -75,22 +75,6 @@ const tierBadgeStyles: Record<string, string> = {
   pass: "bg-zinc-50 text-zinc-500 border-zinc-200 dark:bg-zinc-800/50 dark:text-zinc-400 dark:border-zinc-700",
 };
 
-// Vibe tag colors — same as post-card for consistency
-const vibeTagColors = [
-  "bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-900/40 dark:text-pink-300 dark:border-pink-700",
-  "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900/40 dark:text-sky-300 dark:border-sky-700",
-  "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700",
-  "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700",
-  "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700",
-  "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-700",
-];
-
-function vibeTagColor(tag: string): string {
-  let hash = 0;
-  for (let i = 0; i < tag.length; i++) hash = ((hash << 5) - hash + tag.charCodeAt(i)) | 0;
-  return vibeTagColors[Math.abs(hash) % vibeTagColors.length];
-}
-
 export default async function PostPage({ params }: Props) {
   const { id } = await params;
   const post = await getPost(parseInt(id, 10));
@@ -104,9 +88,10 @@ export default async function PostPage({ params }: Props) {
     month: "short",
     day: "numeric",
   });
-  const techStack: string[] = safeParseJsonArray(post.analysis?.techStack);
-  const tags: string[] = safeParseJsonArray(post.analysis?.tags);
   const vibeTags: string[] = safeParseJsonArray(post.analysis?.vibeTags);
+  const strengths: string[] = safeParseJsonArray(post.analysis?.strengths);
+  const weaknesses: string[] = safeParseJsonArray(post.analysis?.weaknesses);
+  const similarTo: string[] = safeParseJsonArray(post.analysis?.similarTo);
   const tier = safeParseTier(post.analysis?.tier);
 
   return (
@@ -184,7 +169,7 @@ export default async function PostPage({ params }: Props) {
             {(tier || vibeTags.length > 0) && (
               <div className="flex flex-wrap items-center gap-2">
                 {tier && (
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border ${tierBadgeStyles[tier] || tierBadgeStyles.mid}`}>
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${tierBadgeStyles[tier] || tierBadgeStyles.mid}`}>
                     <span className="tracking-tighter">{TIER_DOTS[tier]}</span>
                     {TIER_LABELS[tier] || tier}
                   </span>
@@ -192,7 +177,7 @@ export default async function PostPage({ params }: Props) {
                 {vibeTags.map((tag) => (
                   <span
                     key={tag}
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${vibeTagColor(tag)}`}
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getVibeTagColor(tag)}`}
                   >
                     {tag}
                   </span>
@@ -200,11 +185,37 @@ export default async function PostPage({ params }: Props) {
               </div>
             )}
 
-            {/* Highlight — the editorial take */}
+            {/* Editorial take — structured if strengths/weaknesses available, fallback otherwise */}
             {post.analysis.pickReason && post.analysis.pickReason !== "Nothing stands out" && (
-              <div>
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">The Take</span>
-                <p className="mt-1 leading-relaxed">{post.analysis.pickReason}</p>
+              <div className="space-y-3">
+                {strengths.length > 0 || weaknesses.length > 0 ? (
+                  <>
+                    <p className="text-sm italic text-muted-foreground leading-relaxed">{post.analysis.pickReason}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {strengths.length > 0 && (
+                        <div className="border-l-2 border-emerald-400 dark:border-emerald-500 pl-3">
+                          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Strengths</span>
+                          <ul className="mt-1.5 space-y-1">
+                            {strengths.map((s) => <li key={s} className="text-sm leading-relaxed">{s}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      {weaknesses.length > 0 && (
+                        <div className="border-l-2 border-amber-400 dark:border-amber-500 pl-3">
+                          <span className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">Weaknesses</span>
+                          <ul className="mt-1.5 space-y-1">
+                            {weaknesses.map((w) => <li key={w} className="text-sm leading-relaxed">{w}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">The Take</span>
+                    <p className="mt-1 leading-relaxed">{post.analysis.pickReason}</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -227,25 +238,10 @@ export default async function PostPage({ params }: Props) {
 
             </div>
 
-            {techStack.length > 0 && (
+            {similarTo.length > 0 && (
               <div>
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tech Stack</span>
-                <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {techStack.map((tech) => (
-                    <Badge key={tech} variant="secondary">{tech}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {tags.length > 0 && (
-              <div>
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tags</span>
-                <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {tags.map((tag) => (
-                    <Badge key={tag} variant="outline">{tag}</Badge>
-                  ))}
-                </div>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Similar To</span>
+                <p className="mt-1 text-sm">{similarTo.join(" · ")}</p>
               </div>
             )}
           </div>
