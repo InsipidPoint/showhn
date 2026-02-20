@@ -214,7 +214,7 @@ export default async function PostPage({ params }: Props) {
                         <div className="border-l-2 border-emerald-400 dark:border-emerald-500 pl-3">
                           <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Strengths</span>
                           <ul className="mt-1.5 space-y-1">
-                            {strengths.map((s) => <li key={s} className="text-sm leading-relaxed">{s}</li>)}
+                            {strengths.map((s) => <li key={s} className="text-sm leading-relaxed flex gap-2"><span className="text-emerald-400 dark:text-emerald-500 mt-1.5 shrink-0">&#8226;</span><span>{s}</span></li>)}
                           </ul>
                         </div>
                       )}
@@ -222,7 +222,7 @@ export default async function PostPage({ params }: Props) {
                         <div className="border-l-2 border-amber-400 dark:border-amber-500 pl-3">
                           <span className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">Weaknesses</span>
                           <ul className="mt-1.5 space-y-1">
-                            {weaknesses.map((w) => <li key={w} className="text-sm leading-relaxed">{w}</li>)}
+                            {weaknesses.map((w) => <li key={w} className="text-sm leading-relaxed flex gap-2"><span className="text-amber-400 dark:text-amber-500 mt-1.5 shrink-0">&#8226;</span><span>{w}</span></li>)}
                           </ul>
                         </div>
                       )}
