@@ -8,7 +8,7 @@ An AI-powered visual gallery for [Show HN](https://news.ycombinator.com/showhn.h
 
 - **Visual gallery** — Automated screenshots of every Show HN project
 - **GitHub-aware** — GitHub repos get metadata cards (stars, language, description) instead of generic screenshots, with on-demand refresh via the GitHub API
-- **AI analysis** — Each project gets a summary, category, tech stack, and multi-dimensional scoring (novelty, ambition, usefulness) via LLM, with a composite pick score and explanation of why standout projects are noteworthy
+- **AI analysis** — Each project gets a tier (gem/banger/solid/mid/pass), vibe tags, highlight, and strengths/weaknesses via LLM. Benchmark-calibrated against 15 real posts for consistent grading. Batched (5 posts/call) with Anthropic prompt caching for cost efficiency
 - **Full-text search** — SQLite FTS5 search across titles and AI summaries
 - **Daily digest** — Curated view of each day's best projects
 - **Filtering** — By time range, category, points, comments, or AI pick score
@@ -19,7 +19,7 @@ An AI-powered visual gallery for [Show HN](https://news.ycombinator.com/showhn.h
 
 - **Frontend:** Next.js 16 (App Router), React 19, Tailwind CSS 4, shadcn/ui
 - **Database:** SQLite + Drizzle ORM + FTS5 for search
-- **AI:** Configurable LLM pipeline (OpenAI or Anthropic)
+- **AI:** Configurable LLM pipeline (OpenAI or Anthropic) with batch analysis and prompt caching
 - **Screenshots:** Playwright (headless Chromium)
 - **Data:** Algolia HN Search API for ingestion
 
@@ -67,9 +67,10 @@ The app runs on port 3000 by default. Override with `PORT=3333 npm run dev`.
 | Script | Description |
 |--------|-------------|
 | `scripts/ingest.ts` | Fetch Show HN posts from Algolia. Use `--backfill` for 30-day lookback. |
-| `scripts/worker.ts` | Persistent task queue worker. Processes screenshots (via Playwright) and AI analysis (via LLM) in a single combined step. GitHub URLs skip Playwright and fetch metadata via API instead. |
-| `scripts/requeue.ts` | Re-enqueue tasks for reprocessing (e.g. after prompt changes). Use `analyze --all` to re-analyze everything. |
-| `scripts/backfill-github-meta.ts` | Backfill GitHub stars/language/description for existing posts. Requires `GITHUB_TOKEN` for bulk use. |
+| `scripts/worker.ts` | Persistent task queue worker. Batch-processes screenshots and AI analysis (~5 posts/API call). GitHub URLs skip Playwright and fetch metadata via API instead. |
+| `scripts/rescore.ts` | Batch rescore posts using the AI pipeline. Supports `--limit`, `--post`, `--concurrency`, `--dry-run`. |
+| `scripts/requeue.ts` | Re-enqueue tasks for reprocessing (e.g. after prompt changes). |
+| `scripts/backfill-content.ts` | Backfill page content and README text (HTTP fetch, no AI). |
 | `scripts/setup-fts.ts` | Rebuild the FTS5 search index. Run after ingestion. |
 
 ### Environment Variables
@@ -106,7 +107,7 @@ app/
     components/       # React components (header, post card, filter bar, etc.)
     lib/
       db/             # Database schema, queries, connection
-      ai/             # LLM analysis pipeline (scoring, prompt, pick logic)
+      ai/             # LLM analysis pipeline (prompt, tiers, benchmark calibration)
       queue.ts        # SQLite-backed task queue
       sanitize.ts     # HTML sanitization
   scripts/            # Data pipeline scripts

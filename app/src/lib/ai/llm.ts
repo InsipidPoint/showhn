@@ -8,6 +8,7 @@
 
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import { buildBenchmarkContext } from "./benchmark";
 
 export const TIERS = ["gem", "banger", "solid", "mid", "pass"] as const;
 export type Tier = (typeof TIERS)[number];
@@ -91,6 +92,20 @@ export type AnalysisResult = {
   pick_reason: string;
 };
 
+/** Token usage stats returned from provider calls */
+export type UsageStats = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;   // Anthropic prompt cache hits (0 for OpenAI)
+  cacheCreateTokens: number; // Anthropic prompt cache writes (0 for OpenAI)
+  durationMs: number;
+};
+
+type ProviderResponse = {
+  text: string;
+  usage: UsageStats;
+};
+
 const CATEGORIES = [
   "AI/ML",
   "Developer Tools",
@@ -110,8 +125,9 @@ const CATEGORIES = [
   "Other",
 ];
 
-/** Static system prompt — identical across all calls, cached by Anthropic. */
+/** Static system prompt — includes benchmark calibration. Cached by Anthropic. */
 function buildSystemPrompt(): string {
+  const benchmark = buildBenchmarkContext();
   return `You're a sharp, opinionated tech writer reviewing Show HN projects. Analyze the project provided and return a JSON object.
 
 Return ONLY a JSON object with these fields:
@@ -151,22 +167,6 @@ TIER GUIDE — read all five before deciding.
   pass:   No substance. Generic, broken, tutorial-level clone, empty landing page, blog
           post masquerading as a product, or a feature count without real depth (e.g. "100+
           tools" that each wrap a library function).
-
-TIER REFERENCE EXAMPLES — use these to calibrate your judgment:
-  gem:    A zero-config reverse tunnel that replaces a paid tool for production use. Smart
-          architecture, slick DX, and solves a real pain point better than paid alternatives.
-          You'd send this link to a friend unprompted = gem.
-  banger: "HiddenState" — ML news filter using cross-source convergence scoring. Clever
-          methodology, real value, but ultimately still a newsletter/digest. Cool idea +
-          good execution but not "stop what you're doing and look at this" = banger.
-  solid:  "ContextLedger" — CLI for handing off context between AI coding sessions. Real
-          problem, decent engineering, but no "oh cool" moment. Competent and useful to
-          its niche = solid.
-  mid:    "Klovr" — HTML-to-Markdown converter for LLMs. JinaAI, Firecrawl, and Pandoc
-          already do this well. Competent but the category is commoditized = mid.
-  pass:   "Free Browser Dev Tools" — JSON formatter, base64 encoder, JWT decoder on a
-          GitHub Pages site. Works fine but CyberChef and 100 identical sites exist.
-          Nothing here worth curating = pass.
 
 COMMON FALSE POSITIVES — these look like bangers but aren't:
   Complex architecture, crowded category → solid:
@@ -219,6 +219,16 @@ competent but you can't name a single thing that's *interesting* about it, that'
     "How Much Ad Money Targets You" — enter your age, get a dollar estimate. Viral
     landing page, but there's no depth, no tool, no technology worth discussing. Mid.
 
+BANGER vs SOLID — the "would you text this?" test:
+  Ask yourself: "Would a dev text this link to a friend?" If the honest answer is
+  "probably not, but I'd bookmark it" — that's solid. If you'd genuinely say "check
+  this out" — that's banger. The bar is enthusiasm, not utility.
+  AI projects specifically: Most AI wrappers are mid. An AI project needs at least
+  one of these to be banger: novel architecture (not just chaining APIs), meaningfully
+  better than the obvious alternative, or solving a problem that wasn't solvable before
+  AI. "Uses GPT to do X" is not automatically interesting. "Runs entirely local with
+  custom fine-tuned model" might be.
+
 COMMON FALSE NEGATIVES — these look like solids/bangers but deserve higher:
   Niche tool with genuinely clever approach → banger (not solid):
     "sql.js-httpvfs" — runs SQLite in the browser over HTTP range requests. Niche use
@@ -267,32 +277,41 @@ HIGHLIGHT — ONE short sentence. HARD MAX 15 words (~80 characters). This is a 
 Don't penalize good enterprise/infra projects — a well-built database tool solving real
 pain is a banger even if it's not "fun."
 
-Be concise. Return ONLY valid JSON, no markdown fencing.`;
+SUMMARY — one sentence, plain and specific. This appears in link previews and search results.
+  Rules:
+  - Describe what it DOES, not what it IS. "Converts PDFs to structured markdown" not
+    "A PDF conversion tool."
+  - No opinions, no adjectives like "powerful" or "innovative." Save that for the highlight.
+  - Include the key technology or approach if non-obvious. "Uses tree-sitter to parse
+    code into a queryable graph" is better than "Analyzes codebases."
+  - Max ~20 words. If you need more, you're overexplaining.
+
+STRENGTHS/WEAKNESSES — be concrete, not generic.
+  Bad strength: "Clean, well-organized codebase" — you can't verify this from a README.
+  Good strength: "Wire-protocol parsing means zero code changes to existing apps."
+  Bad weakness: "Could benefit from more documentation" — this applies to everything.
+  Good weakness: "No Windows support, and the CLI has no --help flag."
+  Name specific features, technologies, or missing capabilities. Every bullet should
+  contain a noun that's unique to THIS project.
+
+SIMILAR_TO — name real, specific products. Not categories.
+  Good: ["Tailscale", "ZeroTier", "WireGuard"]
+  Bad: ["other VPN tools", "networking solutions"]
+  Empty array [] is fine for genuinely novel projects. Don't force weak comparisons.
+
+Be concise. Return ONLY valid JSON, no markdown fencing.
+
+${benchmark}`;
 }
 
-/** Per-post user message — the variable part that changes every call. */
-function buildUserMessage(title: string, url: string | null, pageContent: string, storyText: string | null, readmeContent?: string, hasScreenshot?: boolean): string {
-  return `${hasScreenshot ? "A screenshot of the project's landing page is attached. Use it to assess design and UI quality — but don't let visual polish inflate the tier. A clean landing page is table stakes, not a differentiator. Most SaaS products look decent now. Only upgrade a tier for design if the visuals are genuinely striking or the UX reveals real craft. A pretty page on a derivative idea is still mid.\n\n" : ""}Title: ${title}
-URL: ${url || "N/A (text-only post)"}
-${storyText ? `Author's description: ${storyText.replace(/<[^>]*>/g, " ").slice(0, 1000)}` : ""}
 
-Page content (truncated):
-${pageContent.slice(0, 3000)}
-${readmeContent ? `\nGitHub README (truncated):\n${readmeContent.slice(0, 3000)}` : ""}`;
-}
-
-async function callOpenAI(systemPrompt: string, userMessage: string, model: string, screenshotBase64?: string): Promise<string> {
+async function callOpenAI(
+  systemPrompt: string,
+  content: OpenAI.ChatCompletionContentPart[],
+  model: string
+): Promise<ProviderResponse> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  // Build user message content — text-only or text+image
-  const content: OpenAI.ChatCompletionContentPart[] = [];
-  if (screenshotBase64) {
-    content.push({
-      type: "image_url",
-      image_url: { url: `data:image/webp;base64,${screenshotBase64}`, detail: "auto" },
-    });
-  }
-  content.push({ type: "text", text: userMessage });
+  const start = Date.now();
 
   const response = await client.chat.completions.create({
     model,
@@ -303,43 +322,60 @@ async function callOpenAI(systemPrompt: string, userMessage: string, model: stri
     max_completion_tokens: 4000,
     response_format: { type: "json_object" },
   });
-  return response.choices[0]?.message?.content || "";
+
+  return {
+    text: response.choices[0]?.message?.content || "",
+    usage: {
+      inputTokens: response.usage?.prompt_tokens ?? 0,
+      outputTokens: response.usage?.completion_tokens ?? 0,
+      cacheReadTokens: 0,
+      cacheCreateTokens: 0,
+      durationMs: Date.now() - start,
+    },
+  };
 }
 
-async function callAnthropic(systemPrompt: string, userMessage: string, model: string, screenshotBase64?: string): Promise<string> {
+async function callAnthropic(
+  systemPrompt: string,
+  content: Anthropic.Messages.ContentBlockParam[],
+  model: string,
+  prefill?: string
+): Promise<ProviderResponse> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const start = Date.now();
 
-  // System message — static instructions separated from per-post data.
-  // NOTE: Haiku 4.5 requires 4096+ tokens for prompt caching to activate.
-  // Our system prompt is ~2636 tokens, so cache_control would be silently ignored.
-  // If we switch to Sonnet/Opus (1024 min) or grow the prompt, add cache_control back.
+  // System prompt with cache_control for Anthropic prompt caching.
+  // ~4096 tokens — at Haiku 4.5's minimum. Cache hits save ~90% on prompt tokens.
   const system: Anthropic.Messages.TextBlockParam[] = [
-    { type: "text", text: systemPrompt },
+    { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } } as Anthropic.Messages.TextBlockParam,
   ];
 
-  const content: Anthropic.Messages.ContentBlockParam[] = [];
-  if (screenshotBase64) {
-    content.push({
-      type: "image",
-      source: { type: "base64", media_type: "image/webp", data: screenshotBase64 },
-    });
-  }
-  content.push({ type: "text", text: userMessage });
-
-  // Prefill assistant turn with "{" to force JSON output (Anthropic has no JSON mode).
+  // Prefill assistant turn to steer JSON output (Anthropic has no JSON mode).
+  const assistantPrefill = prefill || "{";
   const response = await client.messages.create({
     model,
     max_tokens: 4000,
     system,
     messages: [
       { role: "user", content },
-      { role: "assistant", content: "{" },
+      { role: "assistant", content: assistantPrefill },
     ],
   });
 
   const block = response.content[0];
-  // Prepend the "{" we prefilled — the model continues from there.
-  return block.type === "text" ? `{${block.text}` : "";
+  const text = block.type === "text" ? `${assistantPrefill}${block.text}` : "";
+  const u = response.usage;
+
+  return {
+    text,
+    usage: {
+      inputTokens: u.input_tokens ?? 0,
+      outputTokens: u.output_tokens ?? 0,
+      cacheReadTokens: (u as unknown as Record<string, number>).cache_read_input_tokens ?? 0,
+      cacheCreateTokens: (u as unknown as Record<string, number>).cache_creation_input_tokens ?? 0,
+      durationMs: Date.now() - start,
+    },
+  };
 }
 
 /** Convert tier to numeric pick_score for DB sorting */
@@ -362,14 +398,38 @@ export function parseVibeTags(value: unknown): string[] {
     .slice(0, 3);
 }
 
-function parseResult(raw: string): AnalysisResult {
-  // Strip markdown fences, then extract the first top-level JSON object.
-  // Models sometimes emit commentary before/after the JSON.
+/**
+ * Extract the first complete JSON object from a string by matching braces.
+ * Handles the case where the model appends text/commentary after the JSON.
+ */
+function extractJsonObject(raw: string): string {
   const stripped = raw.replace(/```json?\s*/gi, "").replace(/```/g, "").trim();
   const start = stripped.indexOf("{");
-  const end = stripped.lastIndexOf("}");
-  if (start === -1 || end === -1) throw new Error("No JSON object found in response");
-  const parsed = JSON.parse(stripped.slice(start, end + 1));
+  if (start === -1) throw new Error("No JSON object found in response");
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < stripped.length; i++) {
+    const ch = stripped[i];
+    if (escape) { escape = false; continue; }
+    if (ch === "\\" && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) return stripped.slice(start, i + 1);
+    }
+  }
+
+  throw new Error("Unmatched braces in JSON response");
+}
+
+function parseResult(raw: string): AnalysisResult {
+  const jsonStr = extractJsonObject(raw);
+  const parsed = JSON.parse(jsonStr);
 
   const tier = parseTier(parsed.tier);
   const vibe_tags = parseVibeTags(parsed.vibe_tags);
@@ -389,6 +449,183 @@ function parseResult(raw: string): AnalysisResult {
   };
 }
 
+// ─── Batch Analysis ────────────────────────────────────────────────────────
+
+export type BatchPost = {
+  id: number;
+  title: string;
+  url: string | null;
+  pageContent: string;
+  storyText: string | null;
+  readmeContent?: string;
+  screenshotBase64?: string;
+};
+
+/**
+ * Analyze a batch of posts in a single API call.
+ * Includes benchmark calibration context and enables within-batch ranking.
+ */
+export async function analyzeBatch(
+  posts: BatchPost[]
+): Promise<{ results: Map<number, AnalysisResult>; model: string; usage: UsageStats }> {
+  if (posts.length === 0) throw new Error("analyzeBatch: empty batch");
+
+  const provider = process.env.ANALYSIS_PROVIDER || "openai";
+  const model = process.env.ANALYSIS_MODEL || "gpt-5-mini";
+  const systemPrompt = buildSystemPrompt();
+
+  // Build content array with per-post data
+  // (Benchmark calibration is in the system prompt, cached by Anthropic)
+  const anthropicContent: Anthropic.Messages.ContentBlockParam[] = [];
+  const openaiContent: OpenAI.ChatCompletionContentPart[] = [];
+
+  // 1. Batch instructions
+  const batchInstructions = posts.length === 1
+    ? `Rate this project against the calibration references. Return a JSON object with the fields specified in the system prompt.`
+    : `Rate these ${posts.length} projects against the calibration references AND relative to each other within this batch. For each post, return the fields specified in the system prompt.\n\nReturn a JSON object: { "results": [{ "post_id": <id>, ...fields }, ...] }\nOrder results by post_id.`;
+  anthropicContent.push({ type: "text", text: batchInstructions });
+  openaiContent.push({ type: "text", text: batchInstructions });
+
+  // 3. Per-post data (text + optional screenshot)
+  let imageCount = 0;
+  for (let i = 0; i < posts.length; i++) {
+    const post = posts[i];
+
+    // Screenshot image (if available)
+    if (post.screenshotBase64) {
+      anthropicContent.push({
+        type: "image",
+        source: { type: "base64", media_type: "image/webp", data: post.screenshotBase64 },
+      });
+      openaiContent.push({
+        type: "image_url",
+        image_url: { url: `data:image/webp;base64,${post.screenshotBase64}`, detail: "auto" },
+      });
+      imageCount++;
+    }
+
+    // Post text block
+    const hasScreenshot = !!post.screenshotBase64;
+    let postText = posts.length > 1
+      ? `POST ${i + 1} (ID: ${post.id}):\n`
+      : "";
+
+    if (hasScreenshot) {
+      postText += "A screenshot of the project's landing page is attached above. Use it to assess design and UI quality — but don't let visual polish inflate the tier. A clean landing page is table stakes, not a differentiator.\n\n";
+    }
+
+    postText += `Title: ${post.title}\n`;
+    postText += `URL: ${post.url || "N/A (text-only post)"}\n`;
+    if (post.storyText) {
+      postText += `Author's description: ${post.storyText.replace(/<[^>]*>/g, " ").slice(0, 1000)}\n`;
+    }
+    postText += `\nPage content (truncated):\n${post.pageContent.slice(0, 3000)}`;
+    if (post.readmeContent) {
+      postText += `\n\nGitHub README (truncated):\n${post.readmeContent.slice(0, 3000)}`;
+    }
+
+    anthropicContent.push({ type: "text", text: postText });
+    openaiContent.push({ type: "text", text: postText });
+  }
+
+  // Call the provider
+  const postIds = posts.map(p => p.id);
+  console.log(`[llm] analyzeBatch: ${posts.length} post(s) [${postIds.join(",")}], ${imageCount} screenshot(s), provider=${provider}, model=${model}`);
+
+  let resp: ProviderResponse;
+  if (provider === "anthropic") {
+    const prefill = posts.length === 1 ? "{" : '{"results": [{"post_id":';
+    resp = await callAnthropic(systemPrompt, anthropicContent, model, prefill);
+  } else {
+    resp = await callOpenAI(systemPrompt, openaiContent, model);
+  }
+
+  // Log usage
+  const { usage } = resp;
+  const cacheInfo = usage.cacheReadTokens > 0
+    ? ` cache_read=${usage.cacheReadTokens}`
+    : usage.cacheCreateTokens > 0
+      ? ` cache_write=${usage.cacheCreateTokens}`
+      : "";
+  console.log(`[llm] API response: ${usage.inputTokens} in + ${usage.outputTokens} out tokens,${cacheInfo} ${usage.durationMs}ms`);
+
+  // Parse response
+  const expectedIds = posts.map((p) => p.id);
+  let results: Map<number, AnalysisResult>;
+  try {
+    results = parseBatchResult(resp.text, expectedIds, posts.length === 1);
+  } catch (err) {
+    // Log truncated raw response for debugging parse failures
+    const preview = resp.text.slice(0, 500);
+    console.error(`[llm] Parse failed for batch [${postIds.join(",")}]: ${(err as Error).message}`);
+    console.error(`[llm] Raw response (first 500 chars): ${preview}`);
+    throw err;
+  }
+  return { results, model, usage };
+}
+
+/**
+ * Parse a batch response into a Map of post ID → AnalysisResult.
+ * Handles both single-post (flat JSON) and multi-post ({ "results": [...] }) formats.
+ */
+function parseBatchResult(
+  raw: string,
+  expectedIds: number[],
+  singlePost: boolean
+): Map<number, AnalysisResult> {
+  const jsonStr = extractJsonObject(raw);
+  const parsed = JSON.parse(jsonStr);
+  const results = new Map<number, AnalysisResult>();
+
+  if (singlePost && !parsed.results) {
+    // Single-post response: flat JSON object → wrap with the expected ID
+    const result = parseResult(jsonStr);
+    results.set(expectedIds[0], result);
+    return results;
+  }
+
+  // Multi-post response: { "results": [...] }
+  const items: unknown[] = parsed.results;
+  if (!Array.isArray(items)) {
+    throw new Error("Batch response missing 'results' array");
+  }
+
+  for (const item of items) {
+    const obj = item as Record<string, unknown>;
+    const postId = Number(obj.post_id);
+    if (!expectedIds.includes(postId)) continue;
+
+    const tier = parseTier(obj.tier);
+    const vibe_tags = parseVibeTags(obj.vibe_tags);
+    const highlight = String(obj.highlight || obj.pick_reason || "");
+
+    results.set(postId, {
+      summary: String(obj.summary || ""),
+      category: CATEGORIES.includes(obj.category as string) ? (obj.category as string) : "Other",
+      target_audience: String(obj.target_audience || ""),
+      tier,
+      vibe_tags,
+      highlight,
+      strengths: Array.isArray(obj.strengths) ? obj.strengths.map(String) : [],
+      weaknesses: Array.isArray(obj.weaknesses) ? obj.weaknesses.map(String) : [],
+      similar_to: Array.isArray(obj.similar_to) ? obj.similar_to.map(String).slice(0, 3) : [],
+      pick_reason: highlight,
+    });
+  }
+
+  // Validate all expected IDs are present
+  const missing = expectedIds.filter((id) => !results.has(id));
+  if (missing.length > 0) {
+    throw new Error(`Batch response missing post IDs: ${missing.join(", ")}`);
+  }
+
+  return results;
+}
+
+/**
+ * Analyze a single post — backward-compatible wrapper around analyzeBatch().
+ * All existing callers (worker, rescore) continue to work unchanged.
+ */
 export async function analyzePost(
   title: string,
   url: string | null,
@@ -396,19 +633,10 @@ export async function analyzePost(
   storyText: string | null,
   readmeContent?: string,
   screenshotBase64?: string
-): Promise<{ result: AnalysisResult; model: string }> {
-  const provider = process.env.ANALYSIS_PROVIDER || "openai";
-  const model = process.env.ANALYSIS_MODEL || "gpt-5-mini";
-  const systemPrompt = buildSystemPrompt();
-  const userMessage = buildUserMessage(title, url, pageContent, storyText, readmeContent, !!screenshotBase64);
-
-  let raw: string;
-  if (provider === "anthropic") {
-    raw = await callAnthropic(systemPrompt, userMessage, model, screenshotBase64);
-  } else {
-    raw = await callOpenAI(systemPrompt, userMessage, model, screenshotBase64);
-  }
-
-  const result = parseResult(raw);
-  return { result, model };
+): Promise<{ result: AnalysisResult; model: string; usage: UsageStats }> {
+  const { results, model, usage } = await analyzeBatch([{
+    id: 0, title, url, pageContent, storyText, readmeContent, screenshotBase64,
+  }]);
+  const result = results.get(0)!;
+  return { result, model, usage };
 }

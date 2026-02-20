@@ -164,6 +164,58 @@ export function dequeueTask(
 }
 
 /**
+ * Atomically claim up to batchSize pending tasks.
+ */
+export function dequeueBatch(
+  db: DB,
+  batchSize: number,
+  type?: TaskType
+): schema.TaskQueue[] {
+  const now = Math.floor(Date.now() / 1000);
+
+  return db.transaction((tx) => {
+    const rows = tx
+      .select()
+      .from(schema.taskQueue)
+      .where(
+        and(
+          eq(schema.taskQueue.status, "pending"),
+          ...(type ? [eq(schema.taskQueue.type, type)] : [])
+        )
+      )
+      .orderBy(
+        sql`${schema.taskQueue.priority} DESC`,
+        sql`${schema.taskQueue.createdAt} ASC`
+      )
+      .limit(batchSize)
+      .all();
+
+    if (rows.length === 0) return [];
+
+    const claimed: schema.TaskQueue[] = [];
+    for (const task of rows) {
+      tx.update(schema.taskQueue)
+        .set({
+          status: "processing",
+          startedAt: now,
+          attempts: (task.attempts ?? 0) + 1,
+        })
+        .where(eq(schema.taskQueue.id, task.id))
+        .run();
+
+      claimed.push({
+        ...task,
+        status: "processing" as const,
+        startedAt: now,
+        attempts: (task.attempts ?? 0) + 1,
+      });
+    }
+
+    return claimed;
+  });
+}
+
+/**
  * Mark a task as completed.
  */
 export function completeTask(db: DB, taskId: number): void {

@@ -3,19 +3,20 @@
  * Run: npx tsx scripts/worker.ts
  *
  * Polls the task_queue table and processes pending tasks.
+ * AI analysis is batched (up to BATCH_SIZE posts per API call).
  * Handles graceful shutdown on SIGTERM/SIGINT.
  * Designed to run as a long-lived PM2 process.
  */
 
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { eq, and, isNotNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { chromium, type Browser } from "playwright";
 import * as schema from "../src/lib/db/schema";
-import { analyzePost, tierToPickScore } from "../src/lib/ai/llm";
+import { analyzeBatch, analyzePost, tierToPickScore, type BatchPost, type AnalysisResult } from "../src/lib/ai/llm";
 import { fetchPageContent, parseGitHubRepo, fetchGitHubReadme, fetchGitHubMeta, loadScreenshot } from "../src/lib/fetchers";
 import {
-  dequeueTask,
+  dequeueBatch,
   completeTask,
   failTask,
   reclaimStaleTasks,
@@ -73,6 +74,20 @@ const SCREENSHOT_TIMEOUT = parseInt(
 const VIEWPORT = { width: 1280, height: 800 };
 const THUMB_WIDTH = 640;
 
+// Worker config
+const POLL_INTERVAL = parseInt(process.env.WORKER_POLL_INTERVAL || "2000", 10);
+const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || "5", 10);
+const STALE_TIMEOUT = parseInt(
+  process.env.WORKER_STALE_TIMEOUT || "300",
+  10
+);
+const STATS_INTERVAL = 60_000; // Log stats every 60s
+
+let running = true;
+let browser: Browser | null = null;
+
+// ─── Screenshot Helpers ──────────────────────────────────────────────────────
+
 async function generateThumbnail(screenshotPath: string): Promise<void> {
   const thumbPath = screenshotPath.replace(/\.webp$/, "_thumb.webp");
   try {
@@ -84,29 +99,6 @@ async function generateThumbnail(screenshotPath: string): Promise<void> {
     console.error(`  [thumbnail] Failed for ${path.basename(screenshotPath)}:`, (err as Error).message);
   }
 }
-
-// Worker config
-const POLL_INTERVAL = parseInt(process.env.WORKER_POLL_INTERVAL || "2000", 10);
-const STALE_TIMEOUT = parseInt(
-  process.env.WORKER_STALE_TIMEOUT || "300",
-  10
-);
-const STATS_INTERVAL = 60_000; // Log stats every 60s
-
-// Per-type rate limits (ms between tasks of the same type)
-// Screenshots run on this VPS (Chromium) — delay is just memory breathing room.
-// Analysis calls OpenAI (gpt-5-mini) — 500ms is ~120 RPM, well within rate limits.
-const RATE_LIMITS: Record<string, number> = {
-  analyze: parseInt(process.env.WORKER_ANALYZE_DELAY || "500", 10),
-  screenshot: parseInt(process.env.WORKER_SCREENSHOT_DELAY || "500", 10),
-  process: parseInt(process.env.WORKER_PROCESS_DELAY || "500", 10),
-};
-const lastProcessed: Record<string, number> = {};
-
-let running = true;
-let browser: Browser | null = null;
-
-// ─── Screenshot Processing ──────────────────────────────────────────────────
 
 async function ensureBrowser(): Promise<Browser> {
   if (!browser || !browser.isConnected()) {
@@ -133,11 +125,6 @@ async function takeScreenshot(
 
   try {
     const page = await context.newPage();
-
-    // Use 'load' to wait for all resources, then try to wait for network idle.
-    // networkidle waits until no network connections for 500ms — good for SPAs.
-    // Some sites keep long-polling connections open so networkidle never fires;
-    // we catch that with a timeout and fall back to a fixed settle delay.
     await page.goto(url, {
       waitUntil: "load",
       timeout: SCREENSHOT_TIMEOUT,
@@ -145,13 +132,10 @@ async function takeScreenshot(
     try {
       await page.waitForLoadState("networkidle", { timeout: 5000 });
     } catch {
-      // networkidle timed out (site keeps connections open) — that's fine
+      // networkidle timed out — that's fine
     }
-
-    // Extra settle time for CSS animations, lazy images, hydration
     await page.waitForTimeout(1500);
 
-    // Capture as PNG (Playwright doesn't support WebP), then convert
     const tmpPng = screenshotPath + ".tmp.png";
     await page.screenshot({
       path: tmpPng,
@@ -162,7 +146,6 @@ async function takeScreenshot(
     fs.unlinkSync(tmpPng);
 
     await generateThumbnail(screenshotPath);
-
     return true;
   } catch (err) {
     console.error(
@@ -174,6 +157,8 @@ async function takeScreenshot(
     await context.close();
   }
 }
+
+// ─── Screenshot-only Task ────────────────────────────────────────────────────
 
 async function processScreenshot(task: schema.TaskQueue): Promise<void> {
   const post = db
@@ -191,8 +176,6 @@ async function processScreenshot(task: schema.TaskQueue): Promise<void> {
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
   let success = await takeScreenshot(post.id, post.url);
-
-  // One retry with delay
   if (!success) {
     console.log(`  [screenshot] Retrying post ${post.id}...`);
     await new Promise((r) => setTimeout(r, 2000));
@@ -207,7 +190,6 @@ async function processScreenshot(task: schema.TaskQueue): Promise<void> {
     completeTask(db, task.id);
     console.log(`  [screenshot] ✓ Post ${post.id}`);
   } else {
-    // Mark post as dead after exhausting task retries
     if ((task.attempts ?? 0) >= (task.maxAttempts ?? 3)) {
       db.update(schema.posts)
         .set({ status: "dead" })
@@ -219,219 +201,66 @@ async function processScreenshot(task: schema.TaskQueue): Promise<void> {
   }
 }
 
-// ─── AI Analysis Processing ─────────────────────────────────────────────────
+// ─── Content Fetching (per-post, pre-AI) ─────────────────────────────────────
 
-async function processAnalysis(task: schema.TaskQueue): Promise<void> {
-  const post = db
-    .select({
-      id: schema.posts.id,
-      title: schema.posts.title,
-      url: schema.posts.url,
-      storyText: schema.posts.storyText,
-    })
-    .from(schema.posts)
-    .where(eq(schema.posts.id, task.postId))
-    .get();
+type FetchedPost = BatchPost & {
+  /** Whether we successfully got/had a screenshot */
+  hasScreenshot: boolean;
+};
 
-  if (!post) {
-    completeTask(db, task.id);
-    console.log(`  [analyze] Skipped post ${task.postId} (not found)`);
-    return;
-  }
+/**
+ * Fetch content for a "process" task (URL post).
+ * Handles GitHub fast path vs Playwright path.
+ * Returns a BatchPost ready for analyzeBatch().
+ */
+async function fetchProcessContent(
+  task: schema.TaskQueue,
+  post: { id: number; title: string; url: string; storyText: string | null; status: string }
+): Promise<FetchedPost> {
+  const ghRepo = parseGitHubRepo(post.url);
 
-  try {
-    let pageContent = "";
-    if (post.url) {
-      pageContent = await fetchPageContent(post.url);
-    }
+  if (ghRepo) {
+    // ── GitHub fast path — skip Playwright ──
+    const [pageText, readmeContent, ghMeta] = await Promise.all([
+      fetchPageContent(post.url),
+      fetchGitHubReadme(ghRepo.owner, ghRepo.repo),
+      fetchGitHubMeta(ghRepo.owner, ghRepo.repo),
+    ]);
 
-    if (!pageContent && !post.storyText) {
-      pageContent = post.title;
-    }
-
-    // Fetch GitHub README if applicable
-    let readmeContent: string | undefined;
-    if (post.url) {
-      const ghRepo = parseGitHubRepo(post.url);
-      if (ghRepo) {
-        readmeContent = await fetchGitHubReadme(ghRepo.owner, ghRepo.repo) || undefined;
-      }
-    }
-
-    // Load existing screenshot from disk for vision analysis
-    const screenshotBase64 = loadScreenshot(post.id);
-    if (screenshotBase64) {
-      console.log(`  [analyze] Loaded screenshot for vision (${post.id})`);
-    }
-
-    const { result, model } = await analyzePost(
-      post.title,
-      post.url,
-      pageContent,
-      post.storyText,
-      readmeContent,
-      screenshotBase64
-    );
-
-    const pickScore = tierToPickScore(result.tier);
     const now = Math.floor(Date.now() / 1000);
-
-    db.insert(schema.aiAnalysis)
-      .values({
-        postId: post.id,
-        summary: result.summary,
-        category: result.category,
-        targetAudience: result.target_audience,
-        pickReason: result.highlight,
-        pickScore,
-        tier: result.tier,
-        vibeTags: JSON.stringify(result.vibe_tags),
-        strengths: JSON.stringify(result.strengths),
-        weaknesses: JSON.stringify(result.weaknesses),
-        similarTo: JSON.stringify(result.similar_to),
-        analyzedAt: now,
-        model,
+    db.update(schema.posts)
+      .set({
+        pageContent: pageText || null,
+        readmeContent: readmeContent || null,
+        ...(ghMeta ? {
+          githubStars: ghMeta.stars,
+          githubLanguage: ghMeta.language,
+          githubDescription: ghMeta.description,
+          githubUpdatedAt: now,
+        } : {}),
       })
-      .onConflictDoUpdate({
-        target: schema.aiAnalysis.postId,
-        set: {
-          summary: result.summary,
-          category: result.category,
-          targetAudience: result.target_audience,
-          pickReason: result.highlight,
-          pickScore,
-          tier: result.tier,
-          vibeTags: JSON.stringify(result.vibe_tags),
-          strengths: JSON.stringify(result.strengths),
-          weaknesses: JSON.stringify(result.weaknesses),
-          similarTo: JSON.stringify(result.similar_to),
-          analyzedAt: now,
-          model,
-        },
-      })
+      .where(eq(schema.posts.id, post.id))
       .run();
 
-    completeTask(db, task.id);
-    console.log(`  [analyze] ✓ Post ${post.id}: [${result.tier}] ${post.title.slice(0, 50)}`);
-  } catch (err) {
-    failTask(db, task.id, (err as Error).message);
-    console.error(`  [analyze] ✗ Post ${post.id}: ${(err as Error).message}`);
-  }
-}
-
-// ─── Combined Process (Screenshot + Analysis) ───────────────────────────────
-
-async function processPost(task: schema.TaskQueue): Promise<void> {
-  const post = db
-    .select({
-      id: schema.posts.id,
-      title: schema.posts.title,
-      url: schema.posts.url,
-      storyText: schema.posts.storyText,
-      status: schema.posts.status,
-    })
-    .from(schema.posts)
-    .where(eq(schema.posts.id, task.postId))
-    .get();
-
-  if (!post || !post.url || post.status !== "active") {
-    completeTask(db, task.id);
-    console.log(`  [process] Skipped post ${task.postId} (no url or inactive)`);
-    return;
-  }
-
-  // ── GitHub fast path — skip Playwright, fetch metadata via API ──
-  const ghRepo = parseGitHubRepo(post.url);
-  if (ghRepo) {
-    try {
-      // Fetch page content (lightweight HTTP), README, and GitHub metadata in parallel
-      const [pageText, readmeContent, ghMeta] = await Promise.all([
-        fetchPageContent(post.url),
-        fetchGitHubReadme(ghRepo.owner, ghRepo.repo),
-        fetchGitHubMeta(ghRepo.owner, ghRepo.repo),
-      ]);
-
-      const now = Math.floor(Date.now() / 1000);
-
-      // Store content + GitHub metadata
-      db.update(schema.posts)
-        .set({
-          pageContent: pageText || null,
-          readmeContent: readmeContent || null,
-          ...(ghMeta ? {
-            githubStars: ghMeta.stars,
-            githubLanguage: ghMeta.language,
-            githubDescription: ghMeta.description,
-            githubUpdatedAt: now,
-          } : {}),
-        })
-        .where(eq(schema.posts.id, post.id))
-        .run();
-
-      if (ghMeta) {
-        console.log(`  [process] (GitHub) Fetched metadata for ${ghRepo.owner}/${ghRepo.repo}: ${ghMeta.stars} stars`);
-      }
-
-      // Run AI analysis without screenshot
-      const contentForAI = pageText || readmeContent || post.title;
-      const { result, model } = await analyzePost(
-        post.title,
-        post.url,
-        contentForAI,
-        post.storyText,
-        readmeContent || undefined,
-        undefined // no screenshot for GitHub repos
-      );
-
-      const pickScore = tierToPickScore(result.tier);
-
-      db.insert(schema.aiAnalysis)
-        .values({
-          postId: post.id,
-          summary: result.summary,
-          category: result.category,
-          targetAudience: result.target_audience,
-          pickReason: result.highlight,
-          pickScore,
-          tier: result.tier,
-          vibeTags: JSON.stringify(result.vibe_tags),
-          strengths: JSON.stringify(result.strengths),
-          weaknesses: JSON.stringify(result.weaknesses),
-          similarTo: JSON.stringify(result.similar_to),
-          analyzedAt: now,
-          model,
-        })
-        .onConflictDoUpdate({
-          target: schema.aiAnalysis.postId,
-          set: {
-            summary: result.summary,
-            category: result.category,
-            targetAudience: result.target_audience,
-            pickReason: result.highlight,
-            pickScore,
-            tier: result.tier,
-            vibeTags: JSON.stringify(result.vibe_tags),
-            strengths: JSON.stringify(result.strengths),
-            weaknesses: JSON.stringify(result.weaknesses),
-            similarTo: JSON.stringify(result.similar_to),
-            analyzedAt: now,
-            model,
-          },
-        })
-        .run();
-
-      completeTask(db, task.id);
-      console.log(`  [process] ✓ Post ${post.id} (GitHub): [${result.tier}] ${post.title.slice(0, 50)}`);
-    } catch (err) {
-      failTask(db, task.id, (err as Error).message);
-      console.error(`  [process] ✗ Post ${post.id} (GitHub): ${(err as Error).message}`);
+    if (ghMeta) {
+      console.log(`  [fetch] (GitHub) ${ghRepo.owner}/${ghRepo.repo}: ${ghMeta.stars} stars`);
     }
-    return;
+
+    return {
+      id: post.id,
+      title: post.title,
+      url: post.url,
+      pageContent: pageText || readmeContent || post.title,
+      storyText: post.storyText,
+      readmeContent: readmeContent || undefined,
+      screenshotBase64: undefined, // no screenshot for GitHub repos
+      hasScreenshot: false,
+    };
   }
 
+  // ── Playwright path — screenshot + rendered text ──
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
-  // Step 1: Open browser, take screenshot (if needed), extract rendered text
   let pageText = "";
   let screenshotSuccess = false;
   const screenshotPath = path.join(SCREENSHOT_DIR, `${post.id}.webp`);
@@ -449,15 +278,11 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
     await page.goto(post.url, { waitUntil: "load", timeout: SCREENSHOT_TIMEOUT });
     try {
       await page.waitForLoadState("networkidle", { timeout: 5000 });
-    } catch {
-      // networkidle timed out — that's fine
-    }
+    } catch { /* ok */ }
     await page.waitForTimeout(1500);
 
-    // Take screenshot only if we don't have one already
     if (!hasExistingScreenshot) {
       try {
-        // Capture as PNG (Playwright doesn't support WebP), then convert
         const tmpPng = screenshotPath + ".tmp.png";
         await page.screenshot({
           path: tmpPng,
@@ -469,13 +294,12 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
         await generateThumbnail(screenshotPath);
         screenshotSuccess = true;
       } catch (err) {
-        console.error(`  [process] Screenshot failed for post ${post.id}:`, (err as Error).message);
+        console.error(`  [fetch] Screenshot failed for post ${post.id}:`, (err as Error).message);
       }
     } else {
-      screenshotSuccess = true; // already have it
+      screenshotSuccess = true;
     }
 
-    // Extract rendered page text (always — needed for AI analysis)
     try {
       pageText = await page.innerText("body");
       pageText = pageText.replace(/\s+/g, " ").trim().slice(0, 5000);
@@ -483,9 +307,7 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
       pageText = "";
     }
   } catch (err) {
-    console.error(`  [process] Page load failed for post ${post.id} (${post.url}):`, (err as Error).message);
-    // If page load failed but we have an existing screenshot, still try analysis
-    // with lightweight fetch as fallback
+    console.error(`  [fetch] Page load failed for post ${post.id} (${post.url}):`, (err as Error).message);
     if (hasExistingScreenshot) {
       screenshotSuccess = true;
       pageText = await fetchPageContent(post.url);
@@ -507,13 +329,13 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
       .run();
   }
 
-  // Step 2: Fetch GitHub README if applicable
-  let readmeContent = "";
+  // Fetch GitHub README if applicable (non-GitHub URL but might link to GitHub)
+  let readmeContent: string | undefined;
   const ghRepoInfo = parseGitHubRepo(post.url);
   if (ghRepoInfo) {
-    readmeContent = await fetchGitHubReadme(ghRepoInfo.owner, ghRepoInfo.repo);
-    if (readmeContent) {
-      console.log(`  [process] Fetched README for ${ghRepoInfo.owner}/${ghRepoInfo.repo}`);
+    const readme = await fetchGitHubReadme(ghRepoInfo.owner, ghRepoInfo.repo);
+    if (readme) {
+      readmeContent = readme;
       db.update(schema.posts)
         .set({ readmeContent })
         .where(eq(schema.posts.id, post.id))
@@ -521,30 +343,85 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
     }
   }
 
-  // Step 3: Run AI analysis (with screenshot vision if available)
-  try {
-    if (!pageText && !post.storyText && !readmeContent) {
-      pageText = post.title; // fallback
+  if (!pageText && !post.storyText && !readmeContent) {
+    pageText = post.title;
+  }
+
+  const screenshotBase64 = screenshotSuccess ? loadScreenshot(post.id) : undefined;
+
+  return {
+    id: post.id,
+    title: post.title,
+    url: post.url,
+    pageContent: pageText,
+    storyText: post.storyText,
+    readmeContent,
+    screenshotBase64,
+    hasScreenshot: screenshotSuccess,
+  };
+}
+
+/**
+ * Fetch content for an "analyze" task (text-only or re-analysis).
+ */
+async function fetchAnalyzeContent(
+  post: { id: number; title: string; url: string | null; storyText: string | null }
+): Promise<FetchedPost> {
+  let pageContent = "";
+  if (post.url) {
+    pageContent = await fetchPageContent(post.url);
+  }
+  if (!pageContent && !post.storyText) {
+    pageContent = post.title;
+  }
+
+  let readmeContent: string | undefined;
+  if (post.url) {
+    const ghRepo = parseGitHubRepo(post.url);
+    if (ghRepo) {
+      readmeContent = await fetchGitHubReadme(ghRepo.owner, ghRepo.repo) || undefined;
     }
+  }
 
-    // Load screenshot from disk for vision analysis
-    const screenshotBase64 = screenshotSuccess ? loadScreenshot(post.id) : undefined;
+  const screenshotBase64 = loadScreenshot(post.id);
 
-    const { result, model } = await analyzePost(
-      post.title,
-      post.url,
-      pageText,
-      post.storyText,
-      readmeContent || undefined,
-      screenshotBase64
-    );
+  return {
+    id: post.id,
+    title: post.title,
+    url: post.url,
+    pageContent,
+    storyText: post.storyText,
+    readmeContent,
+    screenshotBase64,
+    hasScreenshot: !!screenshotBase64,
+  };
+}
 
-    const pickScore = tierToPickScore(result.tier);
-    const now = Math.floor(Date.now() / 1000);
+// ─── DB Upsert Helper ────────────────────────────────────────────────────────
 
-    db.insert(schema.aiAnalysis)
-      .values({
-        postId: post.id,
+function upsertAnalysis(postId: number, result: AnalysisResult, model: string): void {
+  const pickScore = tierToPickScore(result.tier);
+  const now = Math.floor(Date.now() / 1000);
+
+  db.insert(schema.aiAnalysis)
+    .values({
+      postId,
+      summary: result.summary,
+      category: result.category,
+      targetAudience: result.target_audience,
+      pickReason: result.highlight,
+      pickScore,
+      tier: result.tier,
+      vibeTags: JSON.stringify(result.vibe_tags),
+      strengths: JSON.stringify(result.strengths),
+      weaknesses: JSON.stringify(result.weaknesses),
+      similarTo: JSON.stringify(result.similar_to),
+      analyzedAt: now,
+      model,
+    })
+    .onConflictDoUpdate({
+      target: schema.aiAnalysis.postId,
+      set: {
         summary: result.summary,
         category: result.category,
         targetAudience: result.target_audience,
@@ -557,64 +434,16 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
         similarTo: JSON.stringify(result.similar_to),
         analyzedAt: now,
         model,
-      })
-      .onConflictDoUpdate({
-        target: schema.aiAnalysis.postId,
-        set: {
-          summary: result.summary,
-          category: result.category,
-          targetAudience: result.target_audience,
-          pickReason: result.highlight,
-          pickScore,
-          tier: result.tier,
-          vibeTags: JSON.stringify(result.vibe_tags),
-          strengths: JSON.stringify(result.strengths),
-          weaknesses: JSON.stringify(result.weaknesses),
-          similarTo: JSON.stringify(result.similar_to),
-          analyzedAt: now,
-          model,
-        },
-      })
-      .run();
-
-    completeTask(db, task.id);
-    console.log(`  [process] ✓ Post ${post.id}: [${result.tier}] ${post.title.slice(0, 50)}`);
-  } catch (err) {
-    // If screenshot succeeded but analysis failed, still mark screenshot
-    if (!screenshotSuccess && (task.attempts ?? 0) >= (task.maxAttempts ?? 3)) {
-      db.update(schema.posts)
-        .set({ status: "dead" })
-        .where(eq(schema.posts.id, post.id))
-        .run();
-    }
-    failTask(db, task.id, (err as Error).message);
-    console.error(`  [process] ✗ Post ${post.id}: ${(err as Error).message}`);
-  }
+      },
+    })
+    .run();
 }
 
 // ─── Main Worker Loop ────────────────────────────────────────────────────────
 
-async function processTask(task: schema.TaskQueue): Promise<void> {
-  switch (task.type) {
-    case "process":
-      await processPost(task);
-      break;
-    case "screenshot":
-      await processScreenshot(task);
-      break;
-    case "analyze":
-      await processAnalysis(task);
-      break;
-    default:
-      console.warn(`[worker] Unknown task type: ${task.type}`);
-      failTask(db, task.id, `Unknown task type: ${task.type}`);
-  }
-}
-
 async function workerLoop(): Promise<void> {
-  console.log("[worker] Starting task queue worker...");
-  console.log(`[worker] Poll interval: ${POLL_INTERVAL}ms, Stale timeout: ${STALE_TIMEOUT}s`);
-  console.log(`[worker] Rate limits: analyze=${RATE_LIMITS.analyze}ms, screenshot=${RATE_LIMITS.screenshot}ms`);
+  console.log("[worker] Starting task queue worker (batch mode)...");
+  console.log(`[worker] Poll interval: ${POLL_INTERVAL}ms, Batch size: ${BATCH_SIZE}, Stale timeout: ${STALE_TIMEOUT}s`);
 
   // Reclaim any stale tasks from a previous crash
   const reclaimed = reclaimStaleTasks(db, STALE_TIMEOUT);
@@ -638,29 +467,169 @@ async function workerLoop(): Promise<void> {
       lastStatsLog = Date.now();
     }
 
-    // Try to dequeue a task
-    const task = dequeueTask(db);
+    // Dequeue a batch of tasks
+    const tasks = dequeueBatch(db, BATCH_SIZE);
 
-    if (!task) {
-      // No tasks — sleep and poll again
+    if (tasks.length === 0) {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL));
       continue;
     }
 
-    // Enforce per-type rate limit
-    const rateLimit = RATE_LIMITS[task.type] || 500;
-    const lastTime = lastProcessed[task.type] || 0;
-    const elapsed = Date.now() - lastTime;
-    if (elapsed < rateLimit) {
-      await new Promise((r) => setTimeout(r, rateLimit - elapsed));
+    console.log(`[worker] Dequeued ${tasks.length} task(s): ${tasks.map(t => `#${t.id}(${t.type}:${t.postId})`).join(", ")}`);
+
+    // Separate screenshot-only tasks from AI tasks
+    const screenshotTasks = tasks.filter(t => t.type === "screenshot");
+    const aiTasks = tasks.filter(t => t.type === "process" || t.type === "analyze");
+    const unknownTasks = tasks.filter(t => t.type !== "screenshot" && t.type !== "process" && t.type !== "analyze");
+
+    // Handle unknown task types
+    for (const task of unknownTasks) {
+      console.warn(`[worker] Unknown task type: ${task.type}`);
+      failTask(db, task.id, `Unknown task type: ${task.type}`);
     }
 
-    console.log(
-      `[worker] Processing task #${task.id}: ${task.type} for post ${task.postId} (attempt ${task.attempts})`
-    );
+    // Process screenshot-only tasks individually (no AI)
+    for (const task of screenshotTasks) {
+      console.log(`[worker] Processing screenshot task #${task.id} for post ${task.postId}`);
+      await processScreenshot(task);
+    }
 
-    await processTask(task);
-    lastProcessed[task.type] = Date.now();
+    // Process AI tasks as a batch
+    if (aiTasks.length > 0) {
+      await processBatch(aiTasks);
+    }
+  }
+}
+
+/**
+ * Process a batch of AI tasks (process/analyze).
+ * Phase 1: Content fetch per-post (sequential for Playwright, parallel for GitHub).
+ * Phase 2: Single batch AI call.
+ * Phase 3: Write results to DB.
+ * Falls back to individual calls if batch fails.
+ */
+async function processBatch(tasks: schema.TaskQueue[]): Promise<void> {
+  const batchStart = Date.now();
+
+  // Phase 1: Fetch content for each post
+  const fetchStart = Date.now();
+  const batchPosts: FetchedPost[] = [];
+  const taskMap = new Map<number, schema.TaskQueue>(); // postId → task
+
+  for (const task of tasks) {
+    try {
+      if (task.type === "process") {
+        const post = db
+          .select({
+            id: schema.posts.id,
+            title: schema.posts.title,
+            url: schema.posts.url,
+            storyText: schema.posts.storyText,
+            status: schema.posts.status,
+          })
+          .from(schema.posts)
+          .where(eq(schema.posts.id, task.postId))
+          .get();
+
+        if (!post || !post.url || post.status !== "active") {
+          completeTask(db, task.id);
+          console.log(`  [batch] Skipped post ${task.postId} (no url or inactive)`);
+          continue;
+        }
+
+        const t0 = Date.now();
+        const fetched = await fetchProcessContent(task, post as { id: number; title: string; url: string; storyText: string | null; status: string });
+        const fetchMs = Date.now() - t0;
+        batchPosts.push(fetched);
+        taskMap.set(fetched.id, task);
+
+        const contentLen = fetched.pageContent.length;
+        const readmeLen = fetched.readmeContent?.length ?? 0;
+        console.log(`  [batch] Fetched post ${post.id}: ${contentLen} page chars, ${readmeLen} readme chars, screenshot=${fetched.hasScreenshot} (${fetchMs}ms)`);
+      } else if (task.type === "analyze") {
+        const post = db
+          .select({
+            id: schema.posts.id,
+            title: schema.posts.title,
+            url: schema.posts.url,
+            storyText: schema.posts.storyText,
+          })
+          .from(schema.posts)
+          .where(eq(schema.posts.id, task.postId))
+          .get();
+
+        if (!post) {
+          completeTask(db, task.id);
+          console.log(`  [batch] Skipped post ${task.postId} (not found)`);
+          continue;
+        }
+
+        const t0 = Date.now();
+        const fetched = await fetchAnalyzeContent(post);
+        const fetchMs = Date.now() - t0;
+        batchPosts.push(fetched);
+        taskMap.set(fetched.id, task);
+
+        const contentLen = fetched.pageContent.length;
+        const readmeLen = fetched.readmeContent?.length ?? 0;
+        console.log(`  [batch] Fetched post ${post.id} (analyze): ${contentLen} page chars, ${readmeLen} readme chars, screenshot=${fetched.hasScreenshot} (${fetchMs}ms)`);
+      }
+    } catch (err) {
+      failTask(db, task.id, (err as Error).message);
+      console.error(`  [batch] Content fetch failed for post ${task.postId}: ${(err as Error).message}`);
+    }
+  }
+
+  if (batchPosts.length === 0) return;
+
+  const fetchElapsed = Date.now() - fetchStart;
+  console.log(`  [batch] Content fetch phase: ${batchPosts.length} post(s) in ${fetchElapsed}ms`);
+
+  // Phase 2: Batch AI analysis
+  console.log(`  [batch] Sending ${batchPosts.length} post(s) to AI...`);
+
+  try {
+    const { results, model, usage } = await analyzeBatch(batchPosts);
+
+    // Phase 3: Write results
+    for (const [postId, result] of results) {
+      const task = taskMap.get(postId)!;
+      upsertAnalysis(postId, result, model);
+      completeTask(db, task.id);
+
+      const post = batchPosts.find(p => p.id === postId)!;
+      console.log(`  [batch] ✓ Post ${postId}: [${result.tier}] ${post.title.slice(0, 50)}`);
+    }
+
+    const totalMs = Date.now() - batchStart;
+    console.log(`  [batch] Complete: ${batchPosts.length} posts, ${usage.durationMs}ms API, ${totalMs}ms total`);
+  } catch (err) {
+    console.error(`  [batch] Batch AI call failed: ${(err as Error).message}`);
+    console.log(`  [batch] Falling back to individual analysis...`);
+
+    // Fallback: process each post individually
+    for (const post of batchPosts) {
+      const task = taskMap.get(post.id)!;
+      try {
+        const { result, model } = await analyzePost(
+          post.title,
+          post.url,
+          post.pageContent,
+          post.storyText,
+          post.readmeContent,
+          post.screenshotBase64
+        );
+        upsertAnalysis(post.id, result, model);
+        completeTask(db, task.id);
+        console.log(`  [batch] ✓ Post ${post.id} (fallback): [${result.tier}] ${post.title.slice(0, 50)}`);
+      } catch (innerErr) {
+        failTask(db, task.id, (innerErr as Error).message);
+        console.error(`  [batch] ✗ Post ${post.id} (fallback): ${(innerErr as Error).message}`);
+      }
+    }
+
+    const totalMs = Date.now() - batchStart;
+    console.log(`  [batch] Complete (with fallbacks): ${batchPosts.length} posts, ${totalMs}ms total`);
   }
 }
 

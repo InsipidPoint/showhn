@@ -1,20 +1,18 @@
 /**
- * Re-score existing posts by calling analyzePost() — the single judging function.
+ * Re-score existing posts using batch analysis — the single judging function.
  * Always uses the same prompt as the worker (from llm.ts). Supports parallelism
- * and screenshots for consistent scoring.
+ * and screenshots for consistent scoring. Processes posts in batches of BATCH_SIZE.
  *
  * Usage:
  *   npx tsx scripts/rescore.ts                        # all posts, 1 worker
- *   npx tsx scripts/rescore.ts --concurrency 8        # 8 parallel workers
+ *   npx tsx scripts/rescore.ts --concurrency 4        # 4 parallel workers (4 batches at once)
  *   npx tsx scripts/rescore.ts --limit 30             # first 30 posts
  *   npx tsx scripts/rescore.ts --post 123 456         # specific post IDs
  *   npx tsx scripts/rescore.ts --dry-run              # preview without writing
  */
 
 import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "../src/lib/db/schema";
-import { analyzePost, tierToPickScore, TIERS, type AnalysisResult } from "../src/lib/ai/llm";
+import { analyzeBatch, tierToPickScore, TIERS, type BatchPost } from "../src/lib/ai/llm";
 import { loadScreenshot } from "../src/lib/fetchers";
 import path from "path";
 import dotenv from "dotenv";
@@ -24,7 +22,8 @@ dotenv.config({ path: path.join(process.cwd(), ".env.local"), override: true });
 const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "showhn.db");
 const sqlite = new Database(DB_PATH);
 sqlite.pragma("journal_mode = WAL");
-const db = drizzle(sqlite, { schema });
+
+const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || "5", 10);
 
 type PostRow = {
   id: number;
@@ -61,7 +60,7 @@ function parseArgs() {
   return flags;
 }
 
-// Per-worker rate limit: 1 call per 1s → N workers × 1/s = N RPS
+// Per-worker rate limit: delay between batch calls
 const WORKER_DELAY = parseInt(process.env.RESCORE_DELAY || "1000", 10);
 
 const updateStmt = sqlite.prepare(`
@@ -97,67 +96,92 @@ async function main() {
   }
 
   const posts = sqlite.prepare(query).all(...params) as PostRow[];
+  const totalBatches = Math.ceil(posts.length / BATCH_SIZE);
 
-  console.log(`[rescore] ${posts.length} posts, ${flags.concurrency} worker(s)`);
-  console.log(`[rescore] Rate: ~${flags.concurrency} calls/sec (${flags.concurrency * 60} RPM max)`);
+  console.log(`[rescore] ${posts.length} posts in ${totalBatches} batches of ${BATCH_SIZE}, ${flags.concurrency} worker(s)`);
+  console.log(`[rescore] Rate: ~${flags.concurrency} batch calls/sec (${flags.concurrency * BATCH_SIZE} posts/sec)`);
   if (flags.dryRun) console.log("[rescore] DRY RUN — no writes");
 
   const startTime = Date.now();
-  let idx = 0;
+  let batchIdx = 0;
   let processed = 0;
   let errors = 0;
   const tierCounts: Record<string, number> = {};
 
   async function worker() {
-    while (idx < posts.length) {
-      const i = idx++;
-      const post = posts[i];
-      const label = `[${i + 1}/${posts.length}]`;
+    while (batchIdx * BATCH_SIZE < posts.length) {
+      const currentBatch = batchIdx++;
+      const start = currentBatch * BATCH_SIZE;
+      const end = Math.min(start + BATCH_SIZE, posts.length);
+      const batchPosts = posts.slice(start, end);
+      const batchLabel = `[batch ${currentBatch + 1}/${totalBatches}]`;
 
       try {
-        const screenshotBase64 = loadScreenshot(post.id);
-        const pageContent = post.page_content
-          || post.story_text?.replace(/<[^>]*>/g, " ").slice(0, 3000)
-          || post.title;
+        // Build BatchPost array
+        const batchInput: BatchPost[] = batchPosts.map(post => ({
+          id: post.id,
+          title: post.title,
+          url: post.url,
+          pageContent: post.page_content
+            || post.story_text?.replace(/<[^>]*>/g, " ").slice(0, 3000)
+            || post.title,
+          storyText: post.story_text,
+          readmeContent: post.readme_content || undefined,
+          screenshotBase64: loadScreenshot(post.id),
+        }));
 
-        const { result, model } = await analyzePost(
-          post.title,
-          post.url,
-          pageContent,
-          post.story_text,
-          post.readme_content || undefined,
-          screenshotBase64
-        );
+        const screenshotCount = batchInput.filter(p => p.screenshotBase64).length;
+        console.log(`  ${batchLabel} Sending ${batchInput.length} posts (${screenshotCount} with screenshots)...`);
 
-        const pickScore = tierToPickScore(result.tier);
-        tierCounts[result.tier] = (tierCounts[result.tier] || 0) + 1;
+        // One API call for the batch
+        const { results, model, usage } = await analyzeBatch(batchInput);
 
-        const hasScreenshot = !!screenshotBase64;
-        const vibeStr = result.vibe_tags.length > 0 ? ` [${result.vibe_tags.join(", ")}]` : "";
+        // Write results
+        for (const post of batchPosts) {
+          const result = results.get(post.id);
+          if (!result) {
+            errors++;
+            console.error(`  ${batchLabel} ✗ ${post.id}: missing from batch response`);
+            continue;
+          }
 
-        if (!flags.dryRun) {
-          updateStmt.run(
-            result.summary,
-            result.category,
-            result.target_audience,
-            result.tier,
-            JSON.stringify(result.vibe_tags),
-            result.highlight || post.pick_reason || "",
-            pickScore,
-            JSON.stringify(result.strengths),
-            JSON.stringify(result.weaknesses),
-            JSON.stringify(result.similar_to),
-            Math.floor(Date.now() / 1000),
-            model,
-            post.id
-          );
+          const pickScore = tierToPickScore(result.tier);
+          tierCounts[result.tier] = (tierCounts[result.tier] || 0) + 1;
+
+          const hasScreenshot = !!loadScreenshot(post.id);
+          const vibeStr = result.vibe_tags.length > 0 ? ` [${result.vibe_tags.join(", ")}]` : "";
+
+          if (!flags.dryRun) {
+            updateStmt.run(
+              result.summary,
+              result.category,
+              result.target_audience,
+              result.tier,
+              JSON.stringify(result.vibe_tags),
+              result.highlight || post.pick_reason || "",
+              pickScore,
+              JSON.stringify(result.strengths),
+              JSON.stringify(result.weaknesses),
+              JSON.stringify(result.similar_to),
+              Math.floor(Date.now() / 1000),
+              model,
+              post.id
+            );
+          }
+
+          processed++;
+          const postNum = start + batchPosts.indexOf(post) + 1;
+          console.log(`  [${postNum}/${posts.length}] ${flags.dryRun ? "[dry]" : "✓"} ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${hasScreenshot ? " 📸" : "   "}${vibeStr} | ${post.title.substring(0, 50)}`);
         }
 
-        processed++;
-        console.log(`  ${label} ${flags.dryRun ? "[dry]" : "✓"} ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${hasScreenshot ? " 📸" : "   "}${vibeStr} | ${post.title.substring(0, 50)}`);
+        const cacheInfo = usage.cacheReadTokens > 0
+          ? ` cache_hit=${usage.cacheReadTokens}`
+          : "";
+        console.log(`  ${batchLabel} Done: ${usage.inputTokens} in + ${usage.outputTokens} out tokens,${cacheInfo} ${usage.durationMs}ms`);
       } catch (err) {
-        errors++;
-        console.error(`  ${label} ✗ ${post.id}: ${(err as Error).message}`);
+        // Batch failed — count all posts in batch as errors
+        errors += batchPosts.length;
+        console.error(`  ${batchLabel} ✗ Batch failed: ${(err as Error).message}`);
       }
 
       // Rate limit per worker
@@ -166,8 +190,8 @@ async function main() {
   }
 
   const workers = Array.from(
-    { length: Math.min(flags.concurrency, posts.length) },
-    (_, i) => worker()
+    { length: Math.min(flags.concurrency, totalBatches) },
+    () => worker()
   );
   await Promise.all(workers);
 
