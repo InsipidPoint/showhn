@@ -645,14 +645,28 @@ function parseBatchResult(
       if (r) results.set(r[0], r[1]);
     }
   } else {
-    // Repair path: extract individual {...} objects from the raw response.
-    // The outer JSON is broken (missing commas, truncated array), but
-    // individual result objects are usually well-formed.
+    // Repair path: the outer JSON is malformed (missing commas, truncated array),
+    // but individual result objects inside are usually well-formed.
     const stripped = raw.replace(/```json?\s*/gi, "").replace(/```/g, "").trim();
-    const objects = extractJsonObjectsFromString(stripped);
-    console.log(`[llm] JSON repair: extracted ${objects.length} objects from malformed response`);
 
-    for (const objStr of objects) {
+    // Try to find the "results": [ array and extract objects from INSIDE it.
+    // Top-level extraction fails here because the inner objects are nested —
+    // we need to skip past the wrapper to find them.
+    let innerObjects: string[] = [];
+    const resultsArrayMatch = stripped.match(/"results"\s*:\s*\[/);
+    if (resultsArrayMatch && resultsArrayMatch.index !== undefined) {
+      const arrayStart = resultsArrayMatch.index + resultsArrayMatch[0].length;
+      innerObjects = extractJsonObjectsFromString(stripped.slice(arrayStart));
+    }
+
+    // Fallback: try top-level extraction (handles non-results-array formats)
+    if (innerObjects.length === 0) {
+      innerObjects = extractJsonObjectsFromString(stripped);
+    }
+
+    console.log(`[llm] JSON repair: extracted ${innerObjects.length} objects from malformed response`);
+
+    for (const objStr of innerObjects) {
       try {
         const obj = JSON.parse(objStr);
         // Skip the outer wrapper if we accidentally grabbed it
