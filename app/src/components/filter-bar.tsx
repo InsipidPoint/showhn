@@ -14,7 +14,7 @@ const TIME_TABS = [
 
 const SORT_OPTIONS = [
   { label: "Newest", value: "newest" },
-  { label: "Most Upvoted", value: "points" },
+  { label: "Most Points", value: "points" },
   { label: "Most Discussed", value: "comments" },
   { label: "Best Vibes", value: "interesting" },
 ] as const;

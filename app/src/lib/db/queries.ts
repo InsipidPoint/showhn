@@ -171,8 +171,10 @@ export async function getDigest(date?: string): Promise<{
   aiPicks: (Post & { analysis: AiAnalysis | null })[];
   stats: { total: number; categories: Record<string, number> };
 }> {
-  // Parse date or use today
-  const targetDate = date ? new Date(date + "T00:00:00Z") : new Date();
+  // Parse date or default to yesterday (most recent complete day)
+  const targetDate = date
+    ? new Date(date + "T00:00:00Z")
+    : new Date(Date.now() - 24 * 60 * 60 * 1000);
   const dayStart = Math.floor(new Date(targetDate.toISOString().split("T")[0] + "T00:00:00Z").getTime() / 1000);
   const dayEnd = dayStart + 24 * 60 * 60;
 
