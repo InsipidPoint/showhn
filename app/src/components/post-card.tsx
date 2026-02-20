@@ -54,6 +54,17 @@ function getTierStyle(tier: string | null | undefined) {
   return tierStyles[tier || ""] || defaultTierStyle;
 }
 
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function slugify(title: string): string {
   return title
     .toLowerCase()
@@ -130,6 +141,16 @@ export function PostCard({
               className="object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             />
+          ) : post.storyText ? (
+            <div className="absolute inset-0 flex flex-col justify-center px-5 py-4 bg-gradient-to-br from-muted to-muted/80">
+              <div className="flex items-center gap-1.5 text-muted-foreground/70 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
+                <span className="text-xs font-medium">Text Post</span>
+              </div>
+              <p className="text-xs text-foreground/80 line-clamp-4 leading-relaxed">
+                {stripHtml(post.storyText).slice(0, 200)}
+              </p>
+            </div>
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/60">
               <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
@@ -169,7 +190,7 @@ export function PostCard({
           ) : (
             <p className="text-xs text-muted-foreground line-clamp-3 min-h-[3.6rem] mb-2.5 leading-relaxed">
               {post.storyText
-                ? post.storyText.replace(/<[^>]*>/g, "").slice(0, 160)
+                ? stripHtml(post.storyText).slice(0, 160)
                 : "\u00A0"}
             </p>
           )}
