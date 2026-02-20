@@ -64,6 +64,7 @@ export default async function DigestPage({
             <Link
               href={`/digest?date=${prevDate}`}
               className="p-2 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Previous day"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             </Link>
@@ -71,6 +72,7 @@ export default async function DigestPage({
               <Link
                 href={`/digest?date=${nextDate}`}
                 className="p-2 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                aria-label="Next day"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
               </Link>

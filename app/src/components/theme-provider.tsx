@@ -21,6 +21,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const preferred = window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
       : "light";
+    // Sync React state with browser/localStorage — unavoidable for SSR hydration
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(stored || preferred);
   }, []);
 

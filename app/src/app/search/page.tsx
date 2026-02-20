@@ -2,8 +2,14 @@ import { PostCard } from "@/components/post-card";
 import { searchPosts, getCategories } from "@/lib/db/queries";
 import Link from "next/link";
 import { SearchInput } from "./search-input";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Search",
+  description: "Search Show HN projects by keyword, technology, or category.",
+};
 
 const EXAMPLE_SEARCHES = [
   "chess engine",
@@ -90,7 +96,7 @@ export default async function SearchPage({
               {categories.map((cat) => (
                 <Link
                   key={cat}
-                  href={`/?categories=${encodeURIComponent(cat)}`}
+                  href={`/?cat=${encodeURIComponent(cat)}`}
                   className="px-3 py-1.5 text-sm rounded-full border border-border bg-card hover:bg-accent hover:border-primary/30 transition-colors"
                 >
                   {cat}

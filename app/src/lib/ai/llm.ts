@@ -739,6 +739,7 @@ export async function analyzePost(
   const { results, model, usage } = await analyzeBatch([{
     id: 0, title, url, pageContent, storyText, readmeContent, screenshotBase64,
   }]);
-  const result = results.get(0)!;
+  const result = results.get(0);
+  if (!result) throw new Error("analyzePost: no result returned for post");
   return { result, model, usage };
 }

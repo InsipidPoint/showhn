@@ -262,18 +262,40 @@ export function failTask(db: DB, taskId: number, error: string): void {
  */
 export function reclaimStaleTasks(db: DB, timeoutSeconds = 300): number {
   const cutoff = Math.floor(Date.now() / 1000) - timeoutSeconds;
-  const result = db
-    .update(schema.taskQueue)
-    .set({ status: "pending", startedAt: null })
+
+  // Increment attempts on reclaim so crash-stuck tasks eventually hit maxAttempts
+  const staleTasks = db
+    .select()
+    .from(schema.taskQueue)
     .where(
       and(
         eq(schema.taskQueue.status, "processing"),
         lte(schema.taskQueue.startedAt, cutoff)
       )
     )
-    .run();
+    .all();
 
-  return result.changes;
+  let reclaimed = 0;
+  for (const task of staleTasks) {
+    const newAttempts = (task.attempts ?? 0) + 1;
+    const maxAttempts = task.maxAttempts ?? 3;
+
+    if (newAttempts >= maxAttempts) {
+      // Exceeded max attempts — mark as failed
+      db.update(schema.taskQueue)
+        .set({ status: "failed", completedAt: Math.floor(Date.now() / 1000), error: "exceeded max attempts (stale reclaim)" })
+        .where(eq(schema.taskQueue.id, task.id))
+        .run();
+    } else {
+      db.update(schema.taskQueue)
+        .set({ status: "pending", startedAt: null, attempts: newAttempts })
+        .where(eq(schema.taskQueue.id, task.id))
+        .run();
+    }
+    reclaimed++;
+  }
+
+  return reclaimed;
 }
 
 /**

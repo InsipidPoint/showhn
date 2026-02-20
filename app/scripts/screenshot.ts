@@ -100,7 +100,7 @@ async function run() {
   const limit = getLimit();
 
   // Get posts that have a URL but no screenshot
-  let query = db
+  const query = db
     .select({ id: schema.posts.id, url: schema.posts.url })
     .from(schema.posts)
     .where(

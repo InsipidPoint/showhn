@@ -8,14 +8,36 @@ import path from "path";
 
 const SCREENSHOT_DIR = path.join(process.cwd(), "public", "screenshots");
 
+/** Block requests to private/internal network addresses. */
+function isPrivateUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    // Block localhost, link-local, metadata endpoints, and private IPs
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]") return true;
+    if (hostname.startsWith("169.254.") || hostname === "metadata.google.internal") return true;
+    if (hostname.startsWith("10.") || hostname.startsWith("192.168.")) return true;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return true;
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+const MAX_RESPONSE_SIZE = 5 * 1024 * 1024; // 5MB max
+
 /** Fetch a URL and extract text content from the HTML. */
 export async function fetchPageContent(url: string): Promise<string> {
   try {
+    if (isPrivateUrl(url)) return "";
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
 
     const res = await fetch(url, {
       signal: controller.signal,
+      redirect: "follow",
       headers: {
         "User-Agent":
           "Mozilla/5.0 (compatible; HNShowcase/1.0; +https://hnshowcase.com)",
@@ -25,6 +47,11 @@ export async function fetchPageContent(url: string): Promise<string> {
     clearTimeout(timeout);
 
     if (!res.ok) return "";
+
+    // Check content-length before reading body to avoid huge responses
+    const contentLength = parseInt(res.headers.get("content-length") || "0", 10);
+    if (contentLength > MAX_RESPONSE_SIZE) return "";
+
     const html = await res.text();
 
     return html

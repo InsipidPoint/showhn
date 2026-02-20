@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Sora } from "next/font/google";
+import Link from "next/link";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Header } from "@/components/header";
 import "./globals.css";
@@ -95,12 +96,12 @@ export default function RootLayout({
               <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between text-xs text-muted-foreground">
                 <span>HN Showcase — AI-powered gallery for Show HN</span>
                 <div className="flex items-center gap-4">
-                  <a
+                  <Link
                     href="/about"
                     className="hover:text-primary transition-colors"
                   >
                     About
-                  </a>
+                  </Link>
                   <a
                     href="https://github.com/InsipidPoint/showhn"
                     target="_blank"

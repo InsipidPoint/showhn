@@ -25,6 +25,7 @@ export const posts = sqliteTable(
   (table) => [
     index("idx_posts_created").on(table.createdAt),
     index("idx_posts_points").on(table.points),
+    index("idx_posts_status").on(table.status),
   ]
 );
 

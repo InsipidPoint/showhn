@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { PostCardSkeleton } from "@/components/post-card";
 import { PostGrid } from "@/components/post-grid";
 import { FilterBar } from "@/components/filter-bar";
 import { getPosts, getCategories } from "@/lib/db/queries";

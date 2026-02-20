@@ -44,7 +44,7 @@ export async function getPosts({
 
   // Build query with left join (inner join when filtering by category)
   const joinType = categories.length > 0 ? "inner" : "left";
-  let baseQuery = joinType === "inner"
+  const baseQuery = joinType === "inner"
     ? db.select().from(posts).innerJoin(aiAnalysis, eq(posts.id, aiAnalysis.postId))
     : db.select().from(posts).leftJoin(aiAnalysis, eq(posts.id, aiAnalysis.postId));
 
@@ -105,25 +105,39 @@ export async function searchPosts(
   // FTS5 search — use raw SQL since Drizzle doesn't support virtual tables
   const { sqlite } = await import("./index");
 
-  const rows = sqlite
-    .prepare(
-      `SELECT p.*, a.post_id as a_post_id, a.summary as a_summary, a.category as a_category,
-              a.tech_stack as a_tech_stack, a.target_audience as a_target_audience,
-              a.tags as a_tags, a.pick_reason as a_pick_reason,
-              a.pick_score as a_pick_score,
-              a.tier as a_tier, a.vibe_tags as a_vibe_tags,
-              a.strengths as a_strengths, a.weaknesses as a_weaknesses,
-              a.similar_to as a_similar_to,
-              a.analyzed_at as a_analyzed_at, a.model as a_model
-       FROM posts_fts fts
-       JOIN posts p ON p.id = fts.rowid
-       LEFT JOIN ai_analysis a ON p.id = a.post_id
-       WHERE posts_fts MATCH ?
-       ORDER BY rank
-       LIMIT ?`
-    )
-    .all(query, limit) as any[];
+  // Sanitize FTS5 query: wrap in double quotes to treat as a phrase and
+  // prevent FTS5 syntax operators (*, OR, NOT, NEAR, column filters) from
+  // causing parse errors. Escape any internal double quotes.
+  const sanitized = '"' + query.replace(/"/g, '""') + '"';
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw SQL rows from better-sqlite3
+  let rows: any[];
+  try {
+    rows = sqlite
+      .prepare(
+        `SELECT p.*, a.post_id as a_post_id, a.summary as a_summary, a.category as a_category,
+                a.tech_stack as a_tech_stack, a.target_audience as a_target_audience,
+                a.tags as a_tags, a.pick_reason as a_pick_reason,
+                a.pick_score as a_pick_score,
+                a.tier as a_tier, a.vibe_tags as a_vibe_tags,
+                a.strengths as a_strengths, a.weaknesses as a_weaknesses,
+                a.similar_to as a_similar_to,
+                a.analyzed_at as a_analyzed_at, a.model as a_model
+         FROM posts_fts fts
+         JOIN posts p ON p.id = fts.rowid
+         LEFT JOIN ai_analysis a ON p.id = a.post_id
+         WHERE posts_fts MATCH ?
+         ORDER BY rank
+         LIMIT ?`
+      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .all(sanitized, limit) as any[];
+  } catch {
+    // FTS5 parse error — return empty results rather than 500
+    return [];
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return rows.map((r: any) => ({
     id: r.id,
     title: r.title,
@@ -172,8 +186,9 @@ export async function getDigest(date?: string): Promise<{
   stats: { total: number; categories: Record<string, number> };
 }> {
   // Parse date or default to yesterday (most recent complete day)
-  const targetDate = date
-    ? new Date(date + "T00:00:00Z")
+  const parsedDate = date ? new Date(date + "T00:00:00Z") : null;
+  const targetDate = (parsedDate && !isNaN(parsedDate.getTime()))
+    ? parsedDate
     : new Date(Date.now() - 24 * 60 * 60 * 1000);
   const dayStart = Math.floor(new Date(targetDate.toISOString().split("T")[0] + "T00:00:00Z").getTime() / 1000);
   const dayEnd = dayStart + 24 * 60 * 60;
