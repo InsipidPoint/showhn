@@ -1,9 +1,20 @@
 import { PostCard } from "@/components/post-card";
-import { searchPosts } from "@/lib/db/queries";
+import { searchPosts, getCategories } from "@/lib/db/queries";
 import Link from "next/link";
 import { SearchInput } from "./search-input";
 
 export const dynamic = "force-dynamic";
+
+const EXAMPLE_SEARCHES = [
+  "chess engine",
+  "open source",
+  "Rust CLI",
+  "machine learning",
+  "self-hosted",
+  "browser extension",
+  "real-time",
+  "database",
+];
 
 export default async function SearchPage({
   searchParams,
@@ -12,7 +23,10 @@ export default async function SearchPage({
 }) {
   const params = await searchParams;
   const query = params.q || "";
-  const results = query ? await searchPosts(query) : [];
+  const [results, categories] = await Promise.all([
+    query ? searchPosts(query) : Promise.resolve([]),
+    !query ? getCategories() : Promise.resolve([]),
+  ]);
 
   return (
     <>
@@ -25,7 +39,7 @@ export default async function SearchPage({
           Back to browse
         </Link>
 
-        <h1 className="text-xl font-bold mb-3">
+        <h1 className="text-xl font-display font-bold mb-3">
           {query ? (
             <>
               Results for &ldquo;{query}&rdquo;
@@ -54,10 +68,36 @@ export default async function SearchPage({
           ))}
         </div>
       ) : !query ? (
-        <div className="text-center py-20 text-muted-foreground">
-          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3 opacity-40"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <p className="text-lg font-medium">Search Show HN projects</p>
-          <p className="text-sm mt-1">Search by project name, description, or technology.</p>
+        <div className="max-w-lg mx-auto pt-8 pb-20">
+          <div className="mb-8">
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Try searching for</h2>
+            <div className="flex flex-wrap gap-2">
+              {EXAMPLE_SEARCHES.map((term) => (
+                <Link
+                  key={term}
+                  href={`/search?q=${encodeURIComponent(term)}`}
+                  className="px-3 py-1.5 text-sm rounded-full border border-border bg-card hover:bg-accent hover:border-primary/30 transition-colors"
+                >
+                  {term}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Browse by category</h2>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((cat) => (
+                <Link
+                  key={cat}
+                  href={`/?categories=${encodeURIComponent(cat)}`}
+                  className="px-3 py-1.5 text-sm rounded-full border border-border bg-card hover:bg-accent hover:border-primary/30 transition-colors"
+                >
+                  {cat}
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
       ) : null}
     </>

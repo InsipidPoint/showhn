@@ -9,6 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -134,3 +135,36 @@
     display: none;
   }
 }
+
+/* Staggered card entrance — first 16 cards only (initial viewport) */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.grid > *:nth-child(-n+16) {
+  animation: card-enter 0.35s ease-out both;
+}
+
+.grid > *:nth-child(1)  { animation-delay: 0ms; }
+.grid > *:nth-child(2)  { animation-delay: 35ms; }
+.grid > *:nth-child(3)  { animation-delay: 70ms; }
+.grid > *:nth-child(4)  { animation-delay: 105ms; }
+.grid > *:nth-child(5)  { animation-delay: 140ms; }
+.grid > *:nth-child(6)  { animation-delay: 175ms; }
+.grid > *:nth-child(7)  { animation-delay: 210ms; }
+.grid > *:nth-child(8)  { animation-delay: 245ms; }
+.grid > *:nth-child(9)  { animation-delay: 280ms; }
+.grid > *:nth-child(10) { animation-delay: 315ms; }
+.grid > *:nth-child(11) { animation-delay: 350ms; }
+.grid > *:nth-child(12) { animation-delay: 385ms; }
+.grid > *:nth-child(13) { animation-delay: 420ms; }
+.grid > *:nth-child(14) { animation-delay: 455ms; }
+.grid > *:nth-child(15) { animation-delay: 490ms; }
+.grid > *:nth-child(16) { animation-delay: 525ms; }

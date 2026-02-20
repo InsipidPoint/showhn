@@ -18,20 +18,23 @@ export default function AboutPage() {
   return (
     <article className="max-w-2xl mx-auto space-y-12 py-4">
       {/* Hero */}
-      <header className="space-y-4">
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          About HN Showcase
-        </h1>
-        <p className="text-lg text-muted-foreground leading-relaxed">
-          A visual gallery for Show HN projects — originally built as a weekend
-          hack in 2011, rebuilt in 2026 with AI scoring, screenshots, and a lot
-          of vibe coding.
-        </p>
+      <header className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-10 rounded-xl bg-gradient-to-br from-primary/5 via-accent/30 to-primary/5 border border-border/50">
+        <div className="max-w-2xl mx-auto">
+          <p className="text-xs font-medium text-primary uppercase tracking-widest mb-3">Est. 2011</p>
+          <h1 className="text-3xl font-display font-bold tracking-tight sm:text-4xl mb-4">
+            About HN Showcase
+          </h1>
+          <p className="text-lg text-muted-foreground leading-relaxed">
+            A visual gallery for Show HN projects — originally built as a weekend
+            hack in 2011, rebuilt in 2026 with AI scoring, screenshots, and a lot
+            of vibe coding.
+          </p>
+        </div>
       </header>
 
       {/* Origin */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="text-xl font-display font-bold tracking-tight">
           The Original (2011–2012)
         </h2>
         <p className="text-muted-foreground leading-relaxed">
@@ -92,7 +95,7 @@ export default function AboutPage() {
 
       {/* Why Now */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="text-xl font-display font-bold tracking-tight">
           Why Rebuild Now?
         </h2>
         <p className="text-muted-foreground leading-relaxed">
@@ -112,7 +115,7 @@ export default function AboutPage() {
 
       {/* What's Different */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="text-xl font-display font-bold tracking-tight">
           What&apos;s New in v3
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -141,7 +144,7 @@ export default function AboutPage() {
 
       {/* Vibe Coding */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="text-xl font-display font-bold tracking-tight">
           Built with Vibe Coding
         </h2>
         <p className="text-muted-foreground leading-relaxed">
@@ -155,7 +158,7 @@ export default function AboutPage() {
 
       {/* AI Scoring */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="text-xl font-display font-bold tracking-tight">
           How AI Picks Work
         </h2>
         <p className="text-muted-foreground leading-relaxed">
@@ -207,7 +210,7 @@ export default function AboutPage() {
 
       {/* Open Source */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Open Source</h2>
+        <h2 className="text-xl font-display font-bold tracking-tight">Open Source</h2>
         <p className="text-muted-foreground leading-relaxed">
           HN Showcase is open source, as it always has been.
         </p>
@@ -232,7 +235,7 @@ export default function AboutPage() {
 
       {/* Credits */}
       <section className="space-y-4 pb-8">
-        <h2 className="text-xl font-semibold tracking-tight">Credits</h2>
+        <h2 className="text-xl font-display font-bold tracking-tight">Credits</h2>
         <p className="text-muted-foreground leading-relaxed">
           Built by{" "}
           <a
@@ -278,12 +281,12 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4 space-y-2">
+    <div className="rounded-lg border border-border bg-card p-4 space-y-2 border-l-[3px] border-l-primary/40 hover:border-l-primary transition-colors">
       <div className="flex items-center gap-2">
         <span className="text-lg">{icon}</span>
-        <h3 className="font-medium">{title}</h3>
+        <h3 className="font-semibold text-[0.935rem]">{title}</h3>
       </div>
-      <p className="text-sm text-muted-foreground">{description}</p>
+      <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
     </div>
   );
 }

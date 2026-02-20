@@ -178,17 +178,17 @@ export function PostCard({
 
         {/* Content */}
         <div className="p-3">
-          <h3 className="font-semibold text-sm leading-snug line-clamp-2 min-h-[2.4rem] mb-1 group-hover:text-primary transition-colors">
+          <h3 className="font-bold text-[0.935rem] leading-snug line-clamp-2 min-h-[2.6rem] mb-1.5 group-hover:text-primary transition-colors tracking-[-0.01em]">
             {displayTitle}
           </h3>
 
           {/* Highlight — the star of the show */}
           {highlight ? (
-            <p className="text-xs text-muted-foreground line-clamp-3 min-h-[3.6rem] mb-2.5 leading-relaxed">
+            <p className="text-[11.5px] text-muted-foreground/80 line-clamp-3 min-h-[3.6rem] mb-2.5 leading-[1.55]">
               {highlight}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground line-clamp-3 min-h-[3.6rem] mb-2.5 leading-relaxed">
+            <p className="text-[11.5px] text-muted-foreground/80 line-clamp-3 min-h-[3.6rem] mb-2.5 leading-[1.55]">
               {post.storyText
                 ? stripHtml(post.storyText).slice(0, 160)
                 : "\u00A0"}

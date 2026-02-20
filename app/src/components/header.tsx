@@ -29,7 +29,7 @@ export function Header() {
               <rect x="18" y="18" width="12" height="12" rx="2.5" fill="white"/>
             </svg>
           </span>
-          <span className="text-lg font-bold tracking-tight sm:text-xl">HN Showcase</span>
+          <span className="text-lg sm:text-xl font-display font-bold tracking-tight">HN Showcase</span>
         </a>
 
         <form onSubmit={handleSearch} className="flex-1 max-w-md hidden sm:block">

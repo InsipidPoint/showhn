@@ -145,7 +145,7 @@ export default async function PostPage({ params }: Props) {
       )}
 
       {/* Title + meta */}
-      <h1 className="text-2xl sm:text-3xl font-bold mb-2">{displayTitle}</h1>
+      <h1 className="text-2xl sm:text-3xl font-display font-bold mb-2">{displayTitle}</h1>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground mb-4">
         <span>by <span className="font-medium text-foreground">{post.author}</span></span>
         <span>&middot;</span>
