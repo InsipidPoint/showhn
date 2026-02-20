@@ -26,8 +26,8 @@ export default function AboutPage() {
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
             A visual gallery for Show HN projects — originally built as a weekend
-            hack in 2011, rebuilt in 2026 with AI scoring, screenshots, and a lot
-            of vibe coding.
+            hack in 2011, rebuilt in 2026 with AI scoring, live screenshots, and
+            daily digests.
           </p>
         </div>
       </header>
@@ -109,7 +109,9 @@ export default function AboutPage() {
           I thought: what if I brought HN Showcase back, but built for this
           era? Visual browsing, AI as a judge to surface the most
           interesting projects, and a daily digest so you never miss the good
-          ones.
+          ones. This rebuild was largely built with AI coding
+          assistants — felt appropriate for a tool that showcases AI-era
+          projects.
         </p>
       </section>
 
@@ -142,20 +144,6 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Vibe Coding */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-display font-bold tracking-tight">
-          Built with Vibe Coding
-        </h2>
-        <p className="text-muted-foreground leading-relaxed">
-          This v3 rebuild was largely vibe-coded — built collaboratively with AI
-          coding assistants, iterating fast, shipping features in hours instead
-          of weeks. The frontend, the scoring pipeline, the screenshot worker —
-          all shaped through rapid human-AI collaboration. It felt appropriate
-          for a tool that showcases AI-era projects.
-        </p>
-      </section>
-
       {/* AI Scoring */}
       <section className="space-y-4">
         <h2 className="text-xl font-display font-bold tracking-tight">
@@ -171,23 +159,23 @@ export default function AboutPage() {
           <ul className="space-y-2 text-muted-foreground">
             <li className="flex gap-3">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200"><span className="tracking-tighter">●●●●</span> Gem</span>
-              <span>Exceptional — you&apos;d mass-share this link.</span>
+              <span>Exceptional, share-it-everywhere good.</span>
             </li>
             <li className="flex gap-3">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200"><span className="tracking-tighter">●●●</span> Banger</span>
-              <span>Really compelling, clear &quot;oh that&apos;s cool&quot; moment.</span>
+              <span>Genuinely impressive, want to try it.</span>
             </li>
             <li className="flex gap-3">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200"><span className="tracking-tighter">●●</span> Solid</span>
-              <span>Good work, interesting to its niche.</span>
+              <span>Good work, niche appeal.</span>
             </li>
             <li className="flex gap-3">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"><span className="tracking-tighter">●</span> Mid</span>
-              <span>Nothing special stands out.</span>
+              <span>Nothing stands out.</span>
             </li>
             <li className="flex gap-3">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-zinc-50 text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400"><span className="tracking-tighter">○</span> Pass</span>
-              <span>Generic, broken, or no substance.</span>
+              <span>Generic or broken.</span>
             </li>
           </ul>
         </div>
@@ -201,10 +189,9 @@ export default function AboutPage() {
           </p>
         </div>
         <p className="text-muted-foreground leading-relaxed">
-          The star of each card is the AI&apos;s editorial highlight — a 2–3 sentence
-          mini-review that tells you what&apos;s actually interesting (or honestly,
-          what isn&apos;t). No generic praise, no empty scores — just a quick take
-          you can scan and decide if it&apos;s worth clicking.
+          Each card also gets a one-sentence hot take — what&apos;s actually
+          interesting (or honestly, what isn&apos;t). No generic praise, just a
+          quick read so you can decide if it&apos;s worth clicking.
         </p>
       </section>
 
