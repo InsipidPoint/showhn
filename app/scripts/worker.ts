@@ -13,7 +13,7 @@ import { eq, and, isNotNull } from "drizzle-orm";
 import { chromium, type Browser } from "playwright";
 import * as schema from "../src/lib/db/schema";
 import { analyzePost, tierToPickScore } from "../src/lib/ai/llm";
-import { fetchPageContent, parseGitHubRepo, fetchGitHubReadme, loadScreenshot } from "../src/lib/fetchers";
+import { fetchPageContent, parseGitHubRepo, fetchGitHubReadme, fetchGitHubMeta, loadScreenshot } from "../src/lib/fetchers";
 import {
   dequeueTask,
   completeTask,
@@ -59,6 +59,9 @@ sqlite.exec(`
 // Migration: ensure columns exist
 for (const col of ["pick_reason TEXT", "pick_score INTEGER", "tier TEXT", "vibe_tags TEXT", "strengths TEXT", "weaknesses TEXT", "similar_to TEXT"]) {
   try { sqlite.exec(`ALTER TABLE ai_analysis ADD COLUMN ${col}`); } catch { /* exists */ }
+}
+for (const col of ["github_stars INTEGER", "github_language TEXT", "github_description TEXT", "github_updated_at INTEGER"]) {
+  try { sqlite.exec(`ALTER TABLE posts ADD COLUMN ${col}`); } catch { /* exists */ }
 }
 
 // Screenshot config
@@ -337,6 +340,95 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
     return;
   }
 
+  // ── GitHub fast path — skip Playwright, fetch metadata via API ──
+  const ghRepo = parseGitHubRepo(post.url);
+  if (ghRepo) {
+    try {
+      // Fetch page content (lightweight HTTP), README, and GitHub metadata in parallel
+      const [pageText, readmeContent, ghMeta] = await Promise.all([
+        fetchPageContent(post.url),
+        fetchGitHubReadme(ghRepo.owner, ghRepo.repo),
+        fetchGitHubMeta(ghRepo.owner, ghRepo.repo),
+      ]);
+
+      const now = Math.floor(Date.now() / 1000);
+
+      // Store content + GitHub metadata
+      db.update(schema.posts)
+        .set({
+          pageContent: pageText || null,
+          readmeContent: readmeContent || null,
+          ...(ghMeta ? {
+            githubStars: ghMeta.stars,
+            githubLanguage: ghMeta.language,
+            githubDescription: ghMeta.description,
+            githubUpdatedAt: now,
+          } : {}),
+        })
+        .where(eq(schema.posts.id, post.id))
+        .run();
+
+      if (ghMeta) {
+        console.log(`  [process] (GitHub) Fetched metadata for ${ghRepo.owner}/${ghRepo.repo}: ${ghMeta.stars} stars`);
+      }
+
+      // Run AI analysis without screenshot
+      const contentForAI = pageText || readmeContent || post.title;
+      const { result, model } = await analyzePost(
+        post.title,
+        post.url,
+        contentForAI,
+        post.storyText,
+        readmeContent || undefined,
+        undefined // no screenshot for GitHub repos
+      );
+
+      const pickScore = tierToPickScore(result.tier);
+
+      db.insert(schema.aiAnalysis)
+        .values({
+          postId: post.id,
+          summary: result.summary,
+          category: result.category,
+          targetAudience: result.target_audience,
+          pickReason: result.highlight,
+          pickScore,
+          tier: result.tier,
+          vibeTags: JSON.stringify(result.vibe_tags),
+          strengths: JSON.stringify(result.strengths),
+          weaknesses: JSON.stringify(result.weaknesses),
+          similarTo: JSON.stringify(result.similar_to),
+          analyzedAt: now,
+          model,
+        })
+        .onConflictDoUpdate({
+          target: schema.aiAnalysis.postId,
+          set: {
+            summary: result.summary,
+            category: result.category,
+            targetAudience: result.target_audience,
+            pickReason: result.highlight,
+            pickScore,
+            tier: result.tier,
+            vibeTags: JSON.stringify(result.vibe_tags),
+            strengths: JSON.stringify(result.strengths),
+            weaknesses: JSON.stringify(result.weaknesses),
+            similarTo: JSON.stringify(result.similar_to),
+            analyzedAt: now,
+            model,
+          },
+        })
+        .run();
+
+      completeTask(db, task.id);
+      console.log(`  [process] ✓ Post ${post.id} (GitHub): [${result.tier}] ${post.title.slice(0, 50)}`);
+    } catch (err) {
+      failTask(db, task.id, (err as Error).message);
+      console.error(`  [process] ✗ Post ${post.id} (GitHub): ${(err as Error).message}`);
+    }
+    return;
+  }
+
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
   // Step 1: Open browser, take screenshot (if needed), extract rendered text
@@ -417,11 +509,11 @@ async function processPost(task: schema.TaskQueue): Promise<void> {
 
   // Step 2: Fetch GitHub README if applicable
   let readmeContent = "";
-  const ghRepo = parseGitHubRepo(post.url);
-  if (ghRepo) {
-    readmeContent = await fetchGitHubReadme(ghRepo.owner, ghRepo.repo);
+  const ghRepoInfo = parseGitHubRepo(post.url);
+  if (ghRepoInfo) {
+    readmeContent = await fetchGitHubReadme(ghRepoInfo.owner, ghRepoInfo.repo);
     if (readmeContent) {
-      console.log(`  [process] Fetched README for ${ghRepo.owner}/${ghRepo.repo}`);
+      console.log(`  [process] Fetched README for ${ghRepoInfo.owner}/${ghRepoInfo.repo}`);
       db.update(schema.posts)
         .set({ readmeContent })
         .where(eq(schema.posts.id, post.id))

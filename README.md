@@ -7,6 +7,7 @@ An AI-powered visual gallery for [Show HN](https://news.ycombinator.com/showhn.h
 ## Features
 
 - **Visual gallery** — Automated screenshots of every Show HN project
+- **GitHub-aware** — GitHub repos get metadata cards (stars, language, description) instead of generic screenshots, with on-demand refresh via the GitHub API
 - **AI analysis** — Each project gets a summary, category, tech stack, and multi-dimensional scoring (novelty, ambition, usefulness) via LLM, with a composite pick score and explanation of why standout projects are noteworthy
 - **Full-text search** — SQLite FTS5 search across titles and AI summaries
 - **Daily digest** — Curated view of each day's best projects
@@ -66,8 +67,9 @@ The app runs on port 3000 by default. Override with `PORT=3333 npm run dev`.
 | Script | Description |
 |--------|-------------|
 | `scripts/ingest.ts` | Fetch Show HN posts from Algolia. Use `--backfill` for 30-day lookback. |
-| `scripts/worker.ts` | Persistent task queue worker. Processes screenshots (via Playwright) and AI analysis (via LLM) in a single combined step. Extracts rendered page text and GitHub READMEs for better AI input. |
+| `scripts/worker.ts` | Persistent task queue worker. Processes screenshots (via Playwright) and AI analysis (via LLM) in a single combined step. GitHub URLs skip Playwright and fetch metadata via API instead. |
 | `scripts/requeue.ts` | Re-enqueue tasks for reprocessing (e.g. after prompt changes). Use `analyze --all` to re-analyze everything. |
+| `scripts/backfill-github-meta.ts` | Backfill GitHub stars/language/description for existing posts. Requires `GITHUB_TOKEN` for bulk use. |
 | `scripts/setup-fts.ts` | Rebuild the FTS5 search index. Run after ingestion. |
 
 ### Environment Variables
@@ -83,6 +85,7 @@ See [`.env.example`](app/.env.example) for all available options:
 | `ANTHROPIC_API_KEY` | — | Anthropic API key |
 | `SCREENSHOT_CONCURRENCY` | `4` | Parallel browser instances |
 | `SCREENSHOT_TIMEOUT` | `15000` | Screenshot timeout in ms |
+| `GITHUB_TOKEN` | — | GitHub API token (optional, raises rate limit from 60 to 5000 req/hr) |
 
 ## Production Deployment
 

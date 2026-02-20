@@ -9,6 +9,7 @@ import { eq, sql } from "drizzle-orm";
 import { posts } from "./db/schema";
 import type { Post } from "./db/schema";
 import { fetchItem, fetchItemsBatched } from "./hn-api";
+import { parseGitHubRepo, fetchGitHubMeta } from "./fetchers";
 import { createRateLimiter } from "./rate-limit";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 
@@ -128,6 +129,44 @@ async function refreshPostOnDemand(id: number): Promise<void> {
       points: item.score,
       comments: item.descendants,
       updatedAt: now,
+    })
+    .where(eq(posts.id, id))
+    .run();
+}
+
+// --- GitHub metadata refresh (on-demand) ---
+
+/**
+ * Fire-and-forget: if the post links to GitHub and metadata is stale (>24h) or missing,
+ * fetch fresh stars/language/description from the GitHub API.
+ */
+export function triggerGitHubRefreshIfStale(post: Post): void {
+  if (!post.url) return;
+  const ghRepo = parseGitHubRepo(post.url);
+  if (!ghRepo) return;
+
+  const now = Math.floor(Date.now() / 1000);
+  const age = now - (post.githubUpdatedAt ?? 0);
+
+  if (age < ONE_DAY) return;
+  if (!onDemandLimiter.tryConsume()) return;
+
+  refreshGitHubMeta(post.id, ghRepo.owner, ghRepo.repo).catch(() => {});
+}
+
+async function refreshGitHubMeta(id: number, owner: string, repo: string): Promise<void> {
+  const meta = await fetchGitHubMeta(owner, repo);
+  if (!meta) return;
+
+  const { db } = await import("./db/index");
+  const now = Math.floor(Date.now() / 1000);
+
+  db.update(posts)
+    .set({
+      githubStars: meta.stars,
+      githubLanguage: meta.language,
+      githubDescription: meta.description,
+      githubUpdatedAt: now,
     })
     .where(eq(posts.id, id))
     .run();

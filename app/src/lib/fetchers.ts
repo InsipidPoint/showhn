@@ -41,9 +41,50 @@ export async function fetchPageContent(url: string): Promise<string> {
 
 /** Parse a GitHub URL into owner/repo. Returns null for non-GitHub URLs. */
 export function parseGitHubRepo(url: string): { owner: string; repo: string } | null {
-  const match = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/?$/);
+  const match = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)/);
   if (!match) return null;
-  return { owner: match[1], repo: match[2] };
+  // Skip GitHub special pages (marketplace, explore, sponsors, etc.)
+  const specialPaths = ["marketplace", "explore", "sponsors", "topics", "settings", "orgs", "features", "enterprise", "pricing"];
+  if (specialPaths.includes(match[1].toLowerCase())) return null;
+  const repo = match[2].replace(/\.git$/, "");
+  return { owner: match[1], repo };
+}
+
+/** Fetch GitHub repo metadata (stars, language, description) via the GitHub API. */
+export async function fetchGitHubMeta(
+  owner: string,
+  repo: string
+): Promise<{ stars: number; language: string | null; description: string | null } | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github.v3+json",
+      "User-Agent": "HNShowcase/1.0",
+    };
+    const token = process.env.GITHUB_TOKEN;
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      signal: controller.signal,
+      headers,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    return {
+      stars: data.stargazers_count ?? 0,
+      language: data.language ?? null,
+      description: data.description ?? null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Fetch the README.md from a GitHub repo (tries main, then master branch). */

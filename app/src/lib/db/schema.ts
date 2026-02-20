@@ -14,6 +14,10 @@ export const posts = sqliteTable(
     hasScreenshot: integer("has_screenshot").default(0),
     pageContent: text("page_content"), // Rendered page text from Playwright (up to 5KB)
     readmeContent: text("readme_content"), // GitHub README markdown (up to 5KB)
+    githubStars: integer("github_stars"),
+    githubLanguage: text("github_language"),
+    githubDescription: text("github_description"),
+    githubUpdatedAt: integer("github_updated_at"), // unix timestamp of last GitHub API fetch
     status: text("status").default("active"), // active/dead/no_url
     fetchedAt: integer("fetched_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
