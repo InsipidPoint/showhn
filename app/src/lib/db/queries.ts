@@ -65,7 +65,7 @@ export async function getPosts({
       query = query.orderBy(desc(posts.comments)) as typeof query;
       break;
     case "interesting":
-      query = query.orderBy(desc(aiAnalysis.pickScore), desc(posts.createdAt)) as typeof query;
+      query = query.orderBy(desc(aiAnalysis.pickScore), desc(posts.points)) as typeof query;
       break;
   }
 
