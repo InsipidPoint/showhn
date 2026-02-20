@@ -326,15 +326,20 @@ async function callAnthropic(systemPrompt: string, userMessage: string, model: s
   }
   content.push({ type: "text", text: userMessage });
 
+  // Prefill assistant turn with "{" to force JSON output (Anthropic has no JSON mode).
   const response = await client.messages.create({
     model,
     max_tokens: 4000,
     system,
-    messages: [{ role: "user", content }],
+    messages: [
+      { role: "user", content },
+      { role: "assistant", content: "{" },
+    ],
   });
 
   const block = response.content[0];
-  return block.type === "text" ? block.text : "";
+  // Prepend the "{" we prefilled — the model continues from there.
+  return block.type === "text" ? `{${block.text}` : "";
 }
 
 /** Convert tier to numeric pick_score for DB sorting */
