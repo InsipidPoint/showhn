@@ -70,7 +70,7 @@ export async function fetchGitHubReadme(owner: string, repo: string): Promise<st
 export function loadScreenshot(postId: number, screenshotDir?: string): string | undefined {
   const dir = screenshotDir || SCREENSHOT_DIR;
   for (const ext of ["webp", "png"]) {
-    const p = path.join(dir, `${postId}.${ext}`);
+    const p = path.join(dir, `${postId}_thumb.${ext}`);
     if (fs.existsSync(p)) return fs.readFileSync(p).toString("base64");
   }
   return undefined;

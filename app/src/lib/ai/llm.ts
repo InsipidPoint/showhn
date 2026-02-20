@@ -127,18 +127,17 @@ Return ONLY a JSON object with these fields:
   "similar_to": ["1-3 existing tools or products this competes with or closely resembles. Empty array if truly novel."]
 }
 
-TIER GUIDE — read all five before deciding. When in doubt, go lower.
+TIER GUIDE — read all five before deciding.
   gem:    The best of Show HN — you'd send this link to a friend unprompted. Novel concept
-          or approach, strong execution, and genuine "wow" factor. This is rare (roughly
-          1 in 30-40 projects) but it should actually get used when something is clearly
-          a cut above banger. If a project makes you think "this is special," trust that.
+          or approach, strong execution, and genuine "wow" factor. Expect roughly 2-4% of
+          projects to be gems. If a project makes you think "this is special" or "why didn't
+          this exist before?" — trust that instinct and give it gem. Don't second-guess upward.
   banger: Clear "oh that's cool" moment that most developers would appreciate. Needs both
           an interesting idea AND strong execution — not either/or. The project must do
           something that isn't already well-served by established tools in the space.
           A complex architecture on a common problem is not enough — sophistication is
           expected, not a differentiator. If you've seen three similar tools this week
           on HN, it's solid no matter how well-built this one is.
-          If you're debating between banger and solid, it's a solid.
   solid:  Competent project with at least one interesting angle — a clever technique, a
           fresh take on the problem, or a notably well-crafted implementation. You'd use
           it if you had the problem but wouldn't go out of your way to tell someone.
@@ -154,9 +153,9 @@ TIER GUIDE — read all five before deciding. When in doubt, go lower.
           tools" that each wrap a library function).
 
 TIER REFERENCE EXAMPLES — use these to calibrate your judgment:
-  gem:    A real-time collaborative code editor that works entirely in the browser with
-          CRDTs, built-in terminal, and sub-50ms sync. Novel architecture, impressive
-          engineering depth, and immediately useful to a wide audience = gem.
+  gem:    A zero-config reverse tunnel that replaces a paid tool for production use. Smart
+          architecture, slick DX, and solves a real pain point better than paid alternatives.
+          You'd send this link to a friend unprompted = gem.
   banger: "HiddenState" — ML news filter using cross-source convergence scoring. Clever
           methodology, real value, but ultimately still a newsletter/digest. Cool idea +
           good execution but not "stop what you're doing and look at this" = banger.
@@ -219,6 +218,20 @@ competent but you can't name a single thing that's *interesting* about it, that'
   Calculator / single-page utility → mid:
     "How Much Ad Money Targets You" — enter your age, get a dollar estimate. Viral
     landing page, but there's no depth, no tool, no technology worth discussing. Mid.
+
+COMMON FALSE NEGATIVES — these look like solids/bangers but deserve higher:
+  Niche tool with genuinely clever approach → banger (not solid):
+    "sql.js-httpvfs" — runs SQLite in the browser over HTTP range requests. Niche use
+    case, but the approach is genuinely inventive — lazy-loading a DB over a CDN with
+    no server. That's an "oh cool" moment even if you'd never use it yourself. Banger.
+  Impressive constraint or craft → gem (not banger):
+    A chess engine that fits in 2KB, or a full OS in a bootloader. The technical
+    constraint forces genuine ingenuity. You'd share this with anyone into programming,
+    not just domain experts. That's the gem test — transcends its niche. Gem.
+  Solves a painful problem elegantly → gem (not banger):
+    An open-source tool that replaces a paid service with better DX. "Why didn't this
+    exist?" + polished enough to use today = gem. You don't need groundbreaking CS
+    research — a well-chosen problem with excellent execution is enough.
 
 VIBE TAGS — pick 1-3 that genuinely fit from this list (don't force them):
   "Rabbit Hole"      — You'll lose hours exploring this
@@ -296,17 +309,15 @@ async function callOpenAI(systemPrompt: string, userMessage: string, model: stri
 async function callAnthropic(systemPrompt: string, userMessage: string, model: string, screenshotBase64?: string): Promise<string> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  // System message with cache_control on the last block — Anthropic caches
-  // the static instructions (~2500 tokens) so repeated calls pay 10% input cost.
+  // System message — static instructions separated from per-post data.
+  // NOTE: Haiku 4.5 requires 4096+ tokens for prompt caching to activate.
+  // Our system prompt is ~2636 tokens, so cache_control would be silently ignored.
+  // If we switch to Sonnet/Opus (1024 min) or grow the prompt, add cache_control back.
   const system: Anthropic.Messages.TextBlockParam[] = [
-    {
-      type: "text",
-      text: systemPrompt,
-      cache_control: { type: "ephemeral" },
-    } as Anthropic.Messages.TextBlockParam & { cache_control: { type: string } },
+    { type: "text", text: systemPrompt },
   ];
 
-  const content: Anthropic.ContentBlockParam[] = [];
+  const content: Anthropic.Messages.ContentBlockParam[] = [];
   if (screenshotBase64) {
     content.push({
       type: "image",
@@ -321,6 +332,7 @@ async function callAnthropic(systemPrompt: string, userMessage: string, model: s
     system,
     messages: [{ role: "user", content }],
   });
+
   const block = response.content[0];
   return block.type === "text" ? block.text : "";
 }
@@ -346,8 +358,13 @@ export function parseVibeTags(value: unknown): string[] {
 }
 
 function parseResult(raw: string): AnalysisResult {
-  const cleaned = raw.replace(/^```json?\s*/i, "").replace(/\s*```$/i, "").trim();
-  const parsed = JSON.parse(cleaned);
+  // Strip markdown fences, then extract the first top-level JSON object.
+  // Models sometimes emit commentary before/after the JSON.
+  const stripped = raw.replace(/```json?\s*/gi, "").replace(/```/g, "").trim();
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
+  if (start === -1 || end === -1) throw new Error("No JSON object found in response");
+  const parsed = JSON.parse(stripped.slice(start, end + 1));
 
   const tier = parseTier(parsed.tier);
   const vibe_tags = parseVibeTags(parsed.vibe_tags);
