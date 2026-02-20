@@ -21,7 +21,14 @@ export function Header() {
     <header className="border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-50">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
         <a href="/" className="flex items-center gap-2 shrink-0 group">
-          <span className="size-7 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm shadow-sm transition-shadow group-hover:shadow-md">Y</span>
+          <span className="size-7 rounded-lg bg-primary flex items-center justify-center shadow-sm transition-shadow group-hover:shadow-md">
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="2" width="12" height="12" rx="2.5" fill="white"/>
+              <rect x="18" y="2" width="12" height="12" rx="2.5" fill="white"/>
+              <rect x="2" y="18" width="12" height="12" rx="2.5" fill="white"/>
+              <rect x="18" y="18" width="12" height="12" rx="2.5" fill="white"/>
+            </svg>
+          </span>
           <span className="text-lg font-bold tracking-tight sm:text-xl">HN Showcase</span>
         </a>
 

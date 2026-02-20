@@ -1,14 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <rect width="32" height="32" rx="7" fill="#FF6600"/>
-  <text
-    x="16"
-    y="23"
-    font-family="Arial, Helvetica, sans-serif"
-    font-size="20"
-    font-weight="700"
-    fill="white"
-    text-anchor="middle"
-    dominant-baseline="auto"
-    letter-spacing="-0.5"
-  >Y</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#d4600a"/>
+  <rect x="6" y="6" width="8.5" height="8.5" rx="2" fill="white"/>
+  <rect x="17.5" y="6" width="8.5" height="8.5" rx="2" fill="white"/>
+  <rect x="6" y="17.5" width="8.5" height="8.5" rx="2" fill="white"/>
+  <rect x="17.5" y="17.5" width="8.5" height="8.5" rx="2" fill="white"/>
 </svg>
