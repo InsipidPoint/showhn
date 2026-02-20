@@ -12,7 +12,7 @@
  */
 
 import Database from "better-sqlite3";
-import { analyzeBatch, tierToPickScore, TIERS, type BatchPost } from "../src/lib/ai/llm";
+import { analyzeBatch, buildBatches, tierToPickScore, TIERS, type BatchPost } from "../src/lib/ai/llm";
 import { loadScreenshot } from "../src/lib/fetchers";
 import path from "path";
 import dotenv from "dotenv";
@@ -22,8 +22,6 @@ dotenv.config({ path: path.join(process.cwd(), ".env.local"), override: true });
 const DB_PATH = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "showhn.db");
 const sqlite = new Database(DB_PATH);
 sqlite.pragma("journal_mode = WAL");
-
-const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || "5", 10);
 
 type PostRow = {
   id: number;
@@ -96,10 +94,24 @@ async function main() {
   }
 
   const posts = sqlite.prepare(query).all(...params) as PostRow[];
-  const totalBatches = Math.ceil(posts.length / BATCH_SIZE);
 
-  console.log(`[rescore] ${posts.length} posts in ${totalBatches} batches of ${BATCH_SIZE}, ${flags.concurrency} worker(s)`);
-  console.log(`[rescore] Rate: ~${flags.concurrency} batch calls/sec (${flags.concurrency * BATCH_SIZE} posts/sec)`);
+  // Build all BatchPost objects upfront, then dynamically size batches
+  const allBatchPosts: BatchPost[] = posts.map(post => ({
+    id: post.id,
+    title: post.title,
+    url: post.url,
+    pageContent: post.page_content
+      || post.story_text?.replace(/<[^>]*>/g, " ").slice(0, 3000)
+      || post.title,
+    storyText: post.story_text,
+    readmeContent: post.readme_content || undefined,
+    screenshotBase64: loadScreenshot(post.id),
+  }));
+
+  const batches = buildBatches(allBatchPosts);
+  const batchSizes = batches.map(b => b.length);
+
+  console.log(`[rescore] ${posts.length} posts in ${batches.length} dynamic batches [${batchSizes.join(",")}], ${flags.concurrency} worker(s)`);
   if (flags.dryRun) console.log("[rescore] DRY RUN — no writes");
 
   const startTime = Date.now();
@@ -107,29 +119,16 @@ async function main() {
   let processed = 0;
   let errors = 0;
   const tierCounts: Record<string, number> = {};
+  // Map post ID → original PostRow for DB writes
+  const postRowMap = new Map(posts.map(p => [p.id, p]));
 
   async function worker() {
-    while (batchIdx * BATCH_SIZE < posts.length) {
-      const currentBatch = batchIdx++;
-      const start = currentBatch * BATCH_SIZE;
-      const end = Math.min(start + BATCH_SIZE, posts.length);
-      const batchPosts = posts.slice(start, end);
-      const batchLabel = `[batch ${currentBatch + 1}/${totalBatches}]`;
+    while (batchIdx < batches.length) {
+      const currentBatchIdx = batchIdx++;
+      const batchInput = batches[currentBatchIdx];
+      const batchLabel = `[batch ${currentBatchIdx + 1}/${batches.length}]`;
 
       try {
-        // Build BatchPost array
-        const batchInput: BatchPost[] = batchPosts.map(post => ({
-          id: post.id,
-          title: post.title,
-          url: post.url,
-          pageContent: post.page_content
-            || post.story_text?.replace(/<[^>]*>/g, " ").slice(0, 3000)
-            || post.title,
-          storyText: post.story_text,
-          readmeContent: post.readme_content || undefined,
-          screenshotBase64: loadScreenshot(post.id),
-        }));
-
         const screenshotCount = batchInput.filter(p => p.screenshotBase64).length;
         console.log(`  ${batchLabel} Sending ${batchInput.length} posts (${screenshotCount} with screenshots)...`);
 
@@ -137,18 +136,19 @@ async function main() {
         const { results, model, usage } = await analyzeBatch(batchInput);
 
         // Write results
-        for (const post of batchPosts) {
-          const result = results.get(post.id);
+        for (const bp of batchInput) {
+          const result = results.get(bp.id);
+          const postRow = postRowMap.get(bp.id)!;
           if (!result) {
             errors++;
-            console.error(`  ${batchLabel} ✗ ${post.id}: missing from batch response`);
+            console.error(`  ${batchLabel} ✗ ${bp.id}: missing from batch response`);
             continue;
           }
 
           const pickScore = tierToPickScore(result.tier);
           tierCounts[result.tier] = (tierCounts[result.tier] || 0) + 1;
 
-          const hasScreenshot = !!loadScreenshot(post.id);
+          const hasScreenshot = !!bp.screenshotBase64;
           const vibeStr = result.vibe_tags.length > 0 ? ` [${result.vibe_tags.join(", ")}]` : "";
 
           if (!flags.dryRun) {
@@ -158,20 +158,19 @@ async function main() {
               result.target_audience,
               result.tier,
               JSON.stringify(result.vibe_tags),
-              result.highlight || post.pick_reason || "",
+              result.highlight || postRow.pick_reason || "",
               pickScore,
               JSON.stringify(result.strengths),
               JSON.stringify(result.weaknesses),
               JSON.stringify(result.similar_to),
               Math.floor(Date.now() / 1000),
               model,
-              post.id
+              bp.id
             );
           }
 
           processed++;
-          const postNum = start + batchPosts.indexOf(post) + 1;
-          console.log(`  [${postNum}/${posts.length}] ${flags.dryRun ? "[dry]" : "✓"} ${post.id} | ${result.tier.toUpperCase().padEnd(6)}${hasScreenshot ? " 📸" : "   "}${vibeStr} | ${post.title.substring(0, 50)}`);
+          console.log(`  [${processed}/${posts.length}] ${flags.dryRun ? "[dry]" : "✓"} ${bp.id} | ${result.tier.toUpperCase().padEnd(6)}${hasScreenshot ? " 📸" : "   "}${vibeStr} | ${bp.title.substring(0, 50)}`);
         }
 
         const cacheInfo = usage.cacheReadTokens > 0
@@ -180,7 +179,7 @@ async function main() {
         console.log(`  ${batchLabel} Done: ${usage.inputTokens} in + ${usage.outputTokens} out tokens,${cacheInfo} ${usage.durationMs}ms`);
       } catch (err) {
         // Batch failed — count all posts in batch as errors
-        errors += batchPosts.length;
+        errors += batchInput.length;
         console.error(`  ${batchLabel} ✗ Batch failed: ${(err as Error).message}`);
       }
 
@@ -190,7 +189,7 @@ async function main() {
   }
 
   const workers = Array.from(
-    { length: Math.min(flags.concurrency, totalBatches) },
+    { length: Math.min(flags.concurrency, batches.length) },
     () => worker()
   );
   await Promise.all(workers);

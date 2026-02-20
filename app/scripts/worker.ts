@@ -13,7 +13,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { eq } from "drizzle-orm";
 import { chromium, type Browser } from "playwright";
 import * as schema from "../src/lib/db/schema";
-import { analyzeBatch, analyzePost, tierToPickScore, type BatchPost, type AnalysisResult } from "../src/lib/ai/llm";
+import { analyzeBatch, analyzePost, buildBatches, tierToPickScore, type BatchPost, type AnalysisResult } from "../src/lib/ai/llm";
 import { fetchPageContent, parseGitHubRepo, fetchGitHubReadme, fetchGitHubMeta, loadScreenshot } from "../src/lib/fetchers";
 import {
   dequeueBatch,
@@ -585,52 +585,65 @@ async function processBatch(tasks: schema.TaskQueue[]): Promise<void> {
   const fetchElapsed = Date.now() - fetchStart;
   console.log(`  [batch] Content fetch phase: ${batchPosts.length} post(s) in ${fetchElapsed}ms`);
 
-  // Phase 2: Batch AI analysis
-  console.log(`  [batch] Sending ${batchPosts.length} post(s) to AI...`);
+  // Phase 2: Batch AI analysis with dynamic sizing
+  const subBatches = buildBatches(batchPosts);
+  console.log(`  [batch] Sending ${batchPosts.length} post(s) to AI in ${subBatches.length} sub-batch(es): [${subBatches.map(b => b.length).join(",")}]`);
 
-  try {
-    const { results, model, usage } = await analyzeBatch(batchPosts);
+  for (let si = 0; si < subBatches.length; si++) {
+    const subBatch = subBatches[si];
+    const subLabel = subBatches.length > 1 ? ` (sub ${si + 1}/${subBatches.length})` : "";
 
-    // Phase 3: Write results
-    for (const [postId, result] of results) {
-      const task = taskMap.get(postId)!;
-      upsertAnalysis(postId, result, model);
-      completeTask(db, task.id);
+    try {
+      const { results, model, usage } = await analyzeBatch(subBatch);
 
-      const post = batchPosts.find(p => p.id === postId)!;
-      console.log(`  [batch] ✓ Post ${postId}: [${result.tier}] ${post.title.slice(0, 50)}`);
-    }
-
-    const totalMs = Date.now() - batchStart;
-    console.log(`  [batch] Complete: ${batchPosts.length} posts, ${usage.durationMs}ms API, ${totalMs}ms total`);
-  } catch (err) {
-    console.error(`  [batch] Batch AI call failed: ${(err as Error).message}`);
-    console.log(`  [batch] Falling back to individual analysis...`);
-
-    // Fallback: process each post individually
-    for (const post of batchPosts) {
-      const task = taskMap.get(post.id)!;
-      try {
-        const { result, model } = await analyzePost(
-          post.title,
-          post.url,
-          post.pageContent,
-          post.storyText,
-          post.readmeContent,
-          post.screenshotBase64
-        );
-        upsertAnalysis(post.id, result, model);
+      // Phase 3: Write results
+      for (const [postId, result] of results) {
+        const task = taskMap.get(postId)!;
+        upsertAnalysis(postId, result, model);
         completeTask(db, task.id);
-        console.log(`  [batch] ✓ Post ${post.id} (fallback): [${result.tier}] ${post.title.slice(0, 50)}`);
-      } catch (innerErr) {
-        failTask(db, task.id, (innerErr as Error).message);
-        console.error(`  [batch] ✗ Post ${post.id} (fallback): ${(innerErr as Error).message}`);
+
+        const post = subBatch.find(p => p.id === postId)!;
+        console.log(`  [batch] ✓ Post ${postId}: [${result.tier}] ${post.title.slice(0, 50)}`);
+      }
+
+      // Check for posts missing from response
+      const missing = subBatch.filter(p => !results.has(p.id));
+      for (const post of missing) {
+        const task = taskMap.get(post.id)!;
+        failTask(db, task.id, "Missing from batch response");
+        console.error(`  [batch] ✗ Post ${post.id}${subLabel}: missing from batch response`);
+      }
+
+      console.log(`  [batch]${subLabel} ${results.size}/${subBatch.length} posts, ${usage.durationMs}ms API`);
+    } catch (err) {
+      console.error(`  [batch] Sub-batch${subLabel} failed: ${(err as Error).message}`);
+      console.log(`  [batch] Falling back to individual analysis...`);
+
+      // Fallback: process each post individually
+      for (const post of subBatch) {
+        const task = taskMap.get(post.id)!;
+        try {
+          const { result, model } = await analyzePost(
+            post.title,
+            post.url,
+            post.pageContent,
+            post.storyText,
+            post.readmeContent,
+            post.screenshotBase64
+          );
+          upsertAnalysis(post.id, result, model);
+          completeTask(db, task.id);
+          console.log(`  [batch] ✓ Post ${post.id} (fallback): [${result.tier}] ${post.title.slice(0, 50)}`);
+        } catch (innerErr) {
+          failTask(db, task.id, (innerErr as Error).message);
+          console.error(`  [batch] ✗ Post ${post.id} (fallback): ${(innerErr as Error).message}`);
+        }
       }
     }
-
-    const totalMs = Date.now() - batchStart;
-    console.log(`  [batch] Complete (with fallbacks): ${batchPosts.length} posts, ${totalMs}ms total`);
   }
+
+  const totalMs = Date.now() - batchStart;
+  console.log(`  [batch] Complete: ${batchPosts.length} posts, ${totalMs}ms total`);
 }
 
 // ─── Graceful Shutdown ───────────────────────────────────────────────────────

@@ -482,6 +482,40 @@ export type BatchPost = {
   screenshotBase64?: string;
 };
 
+/** Estimate input tokens for a post, matching truncation in analyzeBatch() */
+export function estimatePostTokens(post: BatchPost): number {
+  const CHARS_PER_TOKEN = 4;
+  const SCREENSHOT_TOKENS = 1600; // ~typical webp thumbnail
+  const OVERHEAD = 100; // metadata, instructions per post
+
+  let tokens = OVERHEAD;
+  if (post.screenshotBase64) tokens += SCREENSHOT_TOKENS;
+  tokens += Math.min(post.pageContent.length, 3000) / CHARS_PER_TOKEN;
+  if (post.storyText) tokens += Math.min(post.storyText.length, 1000) / CHARS_PER_TOKEN;
+  if (post.readmeContent) tokens += Math.min(post.readmeContent.length, 3000) / CHARS_PER_TOKEN;
+  return Math.ceil(tokens);
+}
+
+/** Greedily pack posts into batches within a token budget */
+export function buildBatches(posts: BatchPost[], maxBatchTokens = 10000, maxBatchSize = 5): BatchPost[][] {
+  const batches: BatchPost[][] = [];
+  let current: BatchPost[] = [];
+  let currentTokens = 0;
+
+  for (const post of posts) {
+    const tokens = estimatePostTokens(post);
+    if (current.length > 0 && (currentTokens + tokens > maxBatchTokens || current.length >= maxBatchSize)) {
+      batches.push(current);
+      current = [];
+      currentTokens = 0;
+    }
+    current.push(post);
+    currentTokens += tokens;
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
+
 /**
  * Analyze a batch of posts in a single API call.
  * Includes benchmark calibration context and enables within-batch ranking.
