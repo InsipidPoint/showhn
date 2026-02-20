@@ -404,27 +404,48 @@ export function parseVibeTags(value: unknown): string[] {
  */
 function extractJsonObject(raw: string): string {
   const stripped = raw.replace(/```json?\s*/gi, "").replace(/```/g, "").trim();
-  const start = stripped.indexOf("{");
-  if (start === -1) throw new Error("No JSON object found in response");
+  const results = extractJsonObjectsFromString(stripped, 1);
+  if (results.length === 0) throw new Error("No JSON object found in response");
+  return results[0];
+}
 
-  let depth = 0;
-  let inString = false;
-  let escape = false;
+/**
+ * Extract all complete top-level JSON objects from a string using brace-depth matching.
+ * Tolerates garbage between objects (missing commas, commentary, etc.).
+ */
+function extractJsonObjectsFromString(text: string, limit = Infinity): string[] {
+  const objects: string[] = [];
+  let i = 0;
 
-  for (let i = start; i < stripped.length; i++) {
-    const ch = stripped[i];
-    if (escape) { escape = false; continue; }
-    if (ch === "\\" && inString) { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === "{") depth++;
-    if (ch === "}") {
-      depth--;
-      if (depth === 0) return stripped.slice(start, i + 1);
+  while (i < text.length && objects.length < limit) {
+    // Find next opening brace
+    const start = text.indexOf("{", i);
+    if (start === -1) break;
+
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let end = -1;
+
+    for (let j = start; j < text.length; j++) {
+      const ch = text[j];
+      if (escape) { escape = false; continue; }
+      if (ch === "\\" && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === "{") depth++;
+      if (ch === "}") {
+        depth--;
+        if (depth === 0) { end = j; break; }
+      }
     }
+
+    if (end === -1) break; // Unmatched braces — stop
+    objects.push(text.slice(start, end + 1));
+    i = end + 1;
   }
 
-  throw new Error("Unmatched braces in JSON response");
+  return objects;
 }
 
 function parseResult(raw: string): AnalysisResult {
@@ -564,9 +585,36 @@ export async function analyzeBatch(
   return { results, model, usage };
 }
 
+/** Parse a single result object into [postId, AnalysisResult] if it has a valid post_id. */
+function parseResultObject(
+  obj: Record<string, unknown>,
+  expectedIds: number[]
+): [number, AnalysisResult] | null {
+  const postId = Number(obj.post_id);
+  if (!expectedIds.includes(postId)) return null;
+
+  const tier = parseTier(obj.tier);
+  const vibe_tags = parseVibeTags(obj.vibe_tags);
+  const highlight = String(obj.highlight || obj.pick_reason || "");
+
+  return [postId, {
+    summary: String(obj.summary || ""),
+    category: CATEGORIES.includes(obj.category as string) ? (obj.category as string) : "Other",
+    target_audience: String(obj.target_audience || ""),
+    tier,
+    vibe_tags,
+    highlight,
+    strengths: Array.isArray(obj.strengths) ? obj.strengths.map(String) : [],
+    weaknesses: Array.isArray(obj.weaknesses) ? obj.weaknesses.map(String) : [],
+    similar_to: Array.isArray(obj.similar_to) ? obj.similar_to.map(String).slice(0, 3) : [],
+    pick_reason: highlight,
+  }];
+}
+
 /**
  * Parse a batch response into a Map of post ID → AnalysisResult.
  * Handles both single-post (flat JSON) and multi-post ({ "results": [...] }) formats.
+ * Falls back to extracting individual JSON objects if the outer JSON is malformed.
  */
 function parseBatchResult(
   raw: string,
@@ -574,49 +622,55 @@ function parseBatchResult(
   singlePost: boolean
 ): Map<number, AnalysisResult> {
   const jsonStr = extractJsonObject(raw);
-  const parsed = JSON.parse(jsonStr);
   const results = new Map<number, AnalysisResult>();
 
-  if (singlePost && !parsed.results) {
-    // Single-post response: flat JSON object → wrap with the expected ID
+  // Try clean parse first
+  let parsed: Record<string, unknown> | null = null;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    // JSON is structurally broken — fall through to repair path
+  }
+
+  if (singlePost && parsed && !parsed.results) {
     const result = parseResult(jsonStr);
     results.set(expectedIds[0], result);
     return results;
   }
 
-  // Multi-post response: { "results": [...] }
-  const items: unknown[] = parsed.results;
-  if (!Array.isArray(items)) {
-    throw new Error("Batch response missing 'results' array");
+  if (parsed && Array.isArray(parsed.results)) {
+    // Clean parse succeeded — extract results normally
+    for (const item of parsed.results as unknown[]) {
+      const r = parseResultObject(item as Record<string, unknown>, expectedIds);
+      if (r) results.set(r[0], r[1]);
+    }
+  } else {
+    // Repair path: extract individual {...} objects from the raw response.
+    // The outer JSON is broken (missing commas, truncated array), but
+    // individual result objects are usually well-formed.
+    const stripped = raw.replace(/```json?\s*/gi, "").replace(/```/g, "").trim();
+    const objects = extractJsonObjectsFromString(stripped);
+    console.log(`[llm] JSON repair: extracted ${objects.length} objects from malformed response`);
+
+    for (const objStr of objects) {
+      try {
+        const obj = JSON.parse(objStr);
+        // Skip the outer wrapper if we accidentally grabbed it
+        if (obj.results && !obj.post_id && !obj.tier) continue;
+        const r = parseResultObject(obj, expectedIds);
+        if (r) results.set(r[0], r[1]);
+      } catch {
+        // Individual object is also broken — skip it
+      }
+    }
   }
 
-  for (const item of items) {
-    const obj = item as Record<string, unknown>;
-    const postId = Number(obj.post_id);
-    if (!expectedIds.includes(postId)) continue;
-
-    const tier = parseTier(obj.tier);
-    const vibe_tags = parseVibeTags(obj.vibe_tags);
-    const highlight = String(obj.highlight || obj.pick_reason || "");
-
-    results.set(postId, {
-      summary: String(obj.summary || ""),
-      category: CATEGORIES.includes(obj.category as string) ? (obj.category as string) : "Other",
-      target_audience: String(obj.target_audience || ""),
-      tier,
-      vibe_tags,
-      highlight,
-      strengths: Array.isArray(obj.strengths) ? obj.strengths.map(String) : [],
-      weaknesses: Array.isArray(obj.weaknesses) ? obj.weaknesses.map(String) : [],
-      similar_to: Array.isArray(obj.similar_to) ? obj.similar_to.map(String).slice(0, 3) : [],
-      pick_reason: highlight,
-    });
-  }
-
-  // Validate all expected IDs are present
   const missing = expectedIds.filter((id) => !results.has(id));
+  if (missing.length > 0 && results.size === 0) {
+    throw new Error(`Batch response missing all post IDs: ${missing.join(", ")}`);
+  }
   if (missing.length > 0) {
-    throw new Error(`Batch response missing post IDs: ${missing.join(", ")}`);
+    console.warn(`[llm] Partial batch: recovered ${results.size}/${expectedIds.length}, missing: ${missing.join(", ")}`);
   }
 
   return results;
