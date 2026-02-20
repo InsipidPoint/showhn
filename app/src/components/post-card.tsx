@@ -157,17 +157,17 @@ export function PostCard({
 
         {/* Content */}
         <div className="p-3">
-          <h3 className="font-semibold text-sm leading-snug line-clamp-2 mb-1 group-hover:text-primary transition-colors">
+          <h3 className="font-semibold text-sm leading-snug line-clamp-2 min-h-[2.4rem] mb-1 group-hover:text-primary transition-colors">
             {displayTitle}
           </h3>
 
           {/* Highlight — the star of the show */}
           {highlight ? (
-            <p className="text-xs text-muted-foreground line-clamp-3 mb-2.5 leading-relaxed">
+            <p className="text-xs text-muted-foreground line-clamp-3 min-h-[3.6rem] mb-2.5 leading-relaxed">
               {highlight}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground line-clamp-3 mb-2.5 leading-relaxed">
+            <p className="text-xs text-muted-foreground line-clamp-3 min-h-[3.6rem] mb-2.5 leading-relaxed">
               {post.storyText
                 ? post.storyText.replace(/<[^>]*>/g, "").slice(0, 160)
                 : "\u00A0"}
@@ -175,18 +175,16 @@ export function PostCard({
           )}
 
           {/* Vibe tags */}
-          {vibeTags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-2.5">
-              {vibeTags.map((tag) => (
-                <span
-                  key={tag}
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${getVibeTagColor(tag)}`}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-1 mb-2.5 min-h-[1.375rem]">
+            {vibeTags.map((tag) => (
+              <span
+                key={tag}
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${getVibeTagColor(tag)}`}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
 
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
             <span className="font-medium truncate mr-2">{post.author}</span>
