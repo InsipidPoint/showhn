@@ -106,7 +106,7 @@ export default async function PostPage({ params }: Props) {
       </Link>
 
       {/* Screenshot / GitHub hero — hidden for text-only posts */}
-      {(post.githubStars != null || post.hasScreenshot) && (
+      {!!(post.githubStars != null || post.hasScreenshot) && (
         <div className="rounded-lg border border-border overflow-hidden bg-muted mb-6">
           {post.githubStars != null ? (
             <div className="flex flex-col justify-center px-8 py-8 bg-gradient-to-br from-muted to-muted/80">
