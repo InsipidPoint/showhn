@@ -11,9 +11,10 @@ An AI-powered visual gallery for [Show HN](https://news.ycombinator.com/showhn.h
 - **AI analysis** — Each project gets a tier (gem/banger/solid/mid/pass), vibe tags, highlight, and strengths/weaknesses via LLM. Benchmark-calibrated against 15 real posts for consistent grading. Batched (5 posts/call) with Anthropic prompt caching for cost efficiency
 - **Full-text search** — SQLite FTS5 search across titles and AI summaries
 - **Daily digest** — Curated view of each day's best projects
+- **AI vs HN** — Divergence page showing where AI ratings and HN crowd votes disagree
 - **Filtering** — By time range, category, points, comments, or AI pick score
 - **Dark mode** — System-aware with manual toggle
-- **Fast** — Server-rendered with SQLite, no external database dependencies
+- **Fast** — Server-rendered with SQLite and ISR caching, no external database dependencies
 
 ## Tech Stack
 
@@ -71,6 +72,8 @@ The app runs on port 3000 by default. Override with `PORT=3333 npm run dev`.
 | `scripts/rescore.ts` | Batch rescore posts using the AI pipeline. Supports `--limit`, `--post`, `--concurrency`, `--dry-run`. |
 | `scripts/requeue.ts` | Re-enqueue tasks for reprocessing (e.g. after prompt changes). |
 | `scripts/backfill-content.ts` | Backfill page content and README text (HTTP fetch, no AI). |
+| `scripts/backfill-content-playwright.ts` | Playwright-based backfill for JS-rendered sites. |
+| `scripts/backfill-thumbnails.ts` | Generate thumbnail images from full screenshots. |
 | `scripts/setup-fts.ts` | Rebuild the FTS5 search index. Run after ingestion. |
 
 ### Environment Variables
@@ -80,8 +83,8 @@ See [`.env.example`](app/.env.example) for all available options:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_PATH` | `./data/showhn.db` | Path to SQLite database |
-| `ANALYSIS_PROVIDER` | `openai` | LLM provider (`openai` or `anthropic`) |
-| `ANALYSIS_MODEL` | `gpt-5-mini` | Model name for analysis |
+| `ANALYSIS_PROVIDER` | `anthropic` | LLM provider (`openai` or `anthropic`) |
+| `ANALYSIS_MODEL` | `claude-haiku-4-5-20251001` | Model name for analysis |
 | `OPENAI_API_KEY` | — | OpenAI API key |
 | `ANTHROPIC_API_KEY` | — | Anthropic API key |
 | `SCREENSHOT_CONCURRENCY` | `4` | Parallel browser instances |
@@ -103,7 +106,7 @@ Uses PM2 for process management and Traefik (via Dokploy) as reverse proxy behin
 ```
 app/
   src/
-    app/              # Next.js pages (homepage, search, digest, post detail)
+    app/              # Next.js pages (homepage, search, digest, divergence, post detail)
     components/       # React components (header, post card, filter bar, etc.)
     lib/
       db/             # Database schema, queries, connection
