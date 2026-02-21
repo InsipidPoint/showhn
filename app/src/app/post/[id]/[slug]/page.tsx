@@ -19,7 +19,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600; // refresh every hour — post data changes slowly
 
 type Props = {
   params: Promise<{ id: string; slug: string }>;

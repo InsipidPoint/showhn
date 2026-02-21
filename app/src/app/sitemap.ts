@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
 import { db } from "@/lib/db";
 import { posts } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
+import { desc, ne } from "drizzle-orm";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600; // refresh every hour
 
 function slugify(title: string): string {
   return title
@@ -21,6 +21,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const allPosts = db
     .select({ id: posts.id, title: posts.title, updatedAt: posts.updatedAt })
     .from(posts)
+    .where(ne(posts.status, "dead"))
     .orderBy(desc(posts.createdAt))
     .all();
 

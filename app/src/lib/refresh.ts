@@ -47,7 +47,8 @@ export function getStalePostIds(database: AnyDB, limit = 100): number[] {
 
   const result = database.all<{ id: number }>(sql`
     SELECT id FROM posts
-    WHERE created_at >= ${now - 30 * ONE_DAY}
+    WHERE status != 'dead'
+      AND created_at >= ${now - 30 * ONE_DAY}
       AND (
         (${now} - created_at < ${1 * ONE_DAY} AND updated_at < ${now - 10 * 60})
         OR (${now} - created_at >= ${1 * ONE_DAY} AND ${now} - created_at < ${3 * ONE_DAY} AND updated_at < ${now - 1 * ONE_HOUR})

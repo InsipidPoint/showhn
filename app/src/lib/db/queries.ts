@@ -1,6 +1,6 @@
 import { db } from "./index";
 import { posts, aiAnalysis } from "./schema";
-import { desc, eq, gte, and, inArray, sql } from "drizzle-orm";
+import { desc, eq, gte, ne, and, inArray, sql } from "drizzle-orm";
 import type { Post, AiAnalysis } from "./schema";
 
 type TimeRange = "today" | "week" | "month" | "all";
@@ -35,7 +35,7 @@ export async function getPosts({
 } = {}): Promise<{ posts: (Post & { analysis: AiAnalysis | null })[]; total: number }> {
   const timeFilter = getTimeFilter(time);
 
-  const conditions: ReturnType<typeof gte>[] = [gte(posts.createdAt, timeFilter)];
+  const conditions: ReturnType<typeof gte>[] = [gte(posts.createdAt, timeFilter), ne(posts.status, "dead")];
 
   // Add category filter in SQL so it works correctly with LIMIT
   if (categories.length > 0) {
@@ -126,7 +126,7 @@ export async function searchPosts(
          FROM posts_fts fts
          JOIN posts p ON p.id = fts.rowid
          LEFT JOIN ai_analysis a ON p.id = a.post_id
-         WHERE posts_fts MATCH ?
+         WHERE posts_fts MATCH ? AND p.status != 'dead'
          ORDER BY rank
          LIMIT ?`
       )
@@ -197,7 +197,7 @@ export async function getDigest(date?: string): Promise<{
     .select()
     .from(posts)
     .leftJoin(aiAnalysis, eq(posts.id, aiAnalysis.postId))
-    .where(and(gte(posts.createdAt, dayStart), sql`${posts.createdAt} < ${dayEnd}`))
+    .where(and(gte(posts.createdAt, dayStart), sql`${posts.createdAt} < ${dayEnd}`, ne(posts.status, "dead")))
     .all();
 
   const mapped = dayPosts.map((r) => ({

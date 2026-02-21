@@ -3,7 +3,7 @@ import { PostGrid } from "@/components/post-grid";
 import { FilterBar } from "@/components/filter-bar";
 import { getPosts, getCategories } from "@/lib/db/queries";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 1200; // refresh every 20 min — stays fresh between 30-min ingest crons
 
 export default async function Home({
   searchParams,

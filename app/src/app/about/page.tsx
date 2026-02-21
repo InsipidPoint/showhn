@@ -193,6 +193,11 @@ export default function AboutPage() {
           interesting (or honestly, what isn&apos;t). No generic praise, just a
           quick read so you can decide if it&apos;s worth clicking.
         </p>
+        <p className="text-muted-foreground leading-relaxed">
+          Curious how well the AI agrees with the crowd?{" "}
+          <a href="/divergence" className="text-primary hover:underline">AI vs HN</a>{" "}
+          shows where the gap is widest — hidden gems HN missed and hyped posts our AI didn&apos;t buy.
+        </p>
       </section>
 
       {/* Open Source */}
