@@ -124,19 +124,25 @@ export function FilterBar({ categories, totalCount }: { categories: string[]; to
           {categories.map((cat) => {
             const isActive = optimisticState.categories.includes(cat);
             return (
-              <Badge
+              <button
                 key={cat}
-                variant={isActive ? "default" : "outline"}
-                className={cn(
-                  "cursor-pointer whitespace-nowrap select-none transition-all duration-150",
-                  isActive
-                    ? "shadow-sm"
-                    : "hover:bg-accent hover:text-accent-foreground hover:border-primary/30"
-                )}
                 onClick={() => toggleCategory(cat)}
+                className="shrink-0"
+                aria-pressed={isActive}
+                aria-label={`Filter by ${cat}`}
               >
-                {cat}
-              </Badge>
+                <Badge
+                  variant={isActive ? "default" : "outline"}
+                  className={cn(
+                    "cursor-pointer whitespace-nowrap select-none transition-all duration-150",
+                    isActive
+                      ? "shadow-sm"
+                      : "hover:bg-accent hover:text-accent-foreground hover:border-primary/30"
+                  )}
+                >
+                  {cat}
+                </Badge>
+              </button>
             );
           })}
         </div>
