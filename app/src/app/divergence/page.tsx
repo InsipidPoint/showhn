@@ -65,7 +65,7 @@ export default async function DivergencePage() {
             Hidden Gems
           </h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Rated gem or banger by our AI &mdash; but HN gave them 10 points or fewer.
+            Rated gem by our AI &mdash; but HN gave them 10 points or fewer.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {gems.map((post) => (
