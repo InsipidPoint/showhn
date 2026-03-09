@@ -378,6 +378,43 @@ async function callAnthropic(
   };
 }
 
+async function callOpenRouter(
+  systemPrompt: string,
+  content: OpenAI.ChatCompletionContentPart[],
+  model: string
+): Promise<ProviderResponse> {
+  const client = new OpenAI({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseURL: "https://openrouter.ai/api/v1",
+  });
+  const start = Date.now();
+
+  const response = await client.chat.completions.create({
+    model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content },
+    ],
+    max_completion_tokens: 8000,
+    // @ts-expect-error — OpenRouter-specific provider routing (not in OpenAI types)
+    provider: {
+      order: [process.env.OPENROUTER_PROVIDER || "alibaba"],
+      allow_fallbacks: false,
+    },
+  });
+
+  return {
+    text: response.choices[0]?.message?.content || "",
+    usage: {
+      inputTokens: response.usage?.prompt_tokens ?? 0,
+      outputTokens: response.usage?.completion_tokens ?? 0,
+      cacheReadTokens: 0,
+      cacheCreateTokens: 0,
+      durationMs: Date.now() - start,
+    },
+  };
+}
+
 /** Convert tier to numeric pick_score for DB sorting */
 export function tierToPickScore(tier: Tier): number {
   return TIER_SCORES[tier] ?? 50;
@@ -591,6 +628,8 @@ export async function analyzeBatch(
   if (provider === "anthropic") {
     const prefill = posts.length === 1 ? "{" : '{"results": [{"post_id":';
     resp = await callAnthropic(systemPrompt, anthropicContent, model, prefill);
+  } else if (provider === "openrouter") {
+    resp = await callOpenRouter(systemPrompt, openaiContent, model);
   } else {
     resp = await callOpenAI(systemPrompt, openaiContent, model);
   }
@@ -655,19 +694,20 @@ function parseBatchResult(
   expectedIds: number[],
   singlePost: boolean
 ): Map<number, AnalysisResult> {
-  const jsonStr = extractJsonObject(raw);
   const results = new Map<number, AnalysisResult>();
 
   // Try clean parse first
+  let jsonStr: string | null = null;
   let parsed: Record<string, unknown> | null = null;
   try {
+    jsonStr = extractJsonObject(raw);
     parsed = JSON.parse(jsonStr);
   } catch {
-    // JSON is structurally broken — fall through to repair path
+    // JSON is structurally broken or truncated — fall through to repair path
   }
 
-  if (singlePost && parsed && !parsed.results) {
-    const result = parseResult(jsonStr);
+  if (singlePost && parsed && !parsed.results && jsonStr) {
+    const result = parseResult(jsonStr!);
     results.set(expectedIds[0], result);
     return results;
   }
