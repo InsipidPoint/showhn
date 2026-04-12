@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Post, AiAnalysis } from "@/lib/db/schema";
 import { TIERS, TIER_LABELS, TIER_DOTS, type Tier, getVibeTagColor } from "@/lib/ai/llm";
+import { categoryToSlug } from "@/lib/categories";
 
 function safeParseTier(value: string | null | undefined): Tier | null {
   if (!value) return null;
@@ -109,15 +110,17 @@ export function PostCard({
     : analysis?.summary || null;
 
   return (
-    <Link href={href} className="group block">
+    <div className="group block relative">
       <article className={`rounded-lg border border-border bg-card overflow-hidden shadow-sm transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5 dark:shadow-none dark:hover:shadow-md dark:hover:shadow-primary/5 dark:hover:border-primary/20 ${tierStyle.accent}`}>
         {/* Screenshot / GitHub card */}
         {compact ? (
           <div className="relative flex items-center justify-between px-3 pt-3">
             {analysis?.category && (
-              <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-muted border border-border/50">
-                {analysis.category}
-              </Badge>
+              <a href={`/category/${categoryToSlug(analysis.category)}`} className="relative z-10">
+                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-muted border border-border/50 hover:bg-muted/80 transition-colors">
+                  {analysis.category}
+                </Badge>
+              </a>
             )}
             {tier && (
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase ${tierStyle.badge}`}>
@@ -177,10 +180,12 @@ export function PostCard({
             </div>
           )}
           {analysis?.category && (
-            <div className="absolute top-2 left-2">
-              <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-background/85 backdrop-blur-sm border border-border/50 shadow-sm">
-                {analysis.category}
-              </Badge>
+            <div className="absolute top-2 left-2 z-10">
+              <a href={`/category/${categoryToSlug(analysis.category)}`} className="relative z-10">
+                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-background/85 backdrop-blur-sm border border-border/50 shadow-sm hover:bg-background/95 transition-colors">
+                  {analysis.category}
+                </Badge>
+              </a>
             </div>
           )}
           {tier && (
@@ -196,7 +201,9 @@ export function PostCard({
         {/* Content */}
         <div className="p-3">
           <h3 className="font-bold text-[0.935rem] leading-snug line-clamp-2 min-h-[2.6rem] mb-1.5 group-hover:text-primary transition-colors tracking-[-0.01em]">
-            {displayTitle}
+            <Link href={href} className="after:absolute after:inset-0">
+              {displayTitle}
+            </Link>
           </h3>
 
           {/* Highlight — the star of the show */}
@@ -240,7 +247,7 @@ export function PostCard({
           </div>
         </div>
       </article>
-    </Link>
+    </div>
   );
 }
 

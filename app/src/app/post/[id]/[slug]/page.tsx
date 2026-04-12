@@ -1,4 +1,5 @@
 import { getPost, getRelatedPosts } from "@/lib/db/queries";
+import { categoryToSlug } from "@/lib/categories";
 import { triggerRefreshIfStale, triggerGitHubRefreshIfStale } from "@/lib/refresh";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { Badge } from "@/components/ui/badge";
@@ -316,7 +317,9 @@ export default async function PostPage({ params }: Props) {
                 <div>
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Category</span>
                   <div className="mt-1.5">
-                    <Badge>{post.analysis.category}</Badge>
+                    <Link href={`/category/${categoryToSlug(post.analysis.category)}`}>
+                      <Badge className="hover:bg-primary/90 transition-colors">{post.analysis.category}</Badge>
+                    </Link>
                   </div>
                 </div>
               )}
