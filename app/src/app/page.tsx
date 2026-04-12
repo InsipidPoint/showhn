@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { PostGrid } from "@/components/post-grid";
 import { FilterBar } from "@/components/filter-bar";
-import { getPosts, getCategories } from "@/lib/db/queries";
+import { HeroPicks } from "@/components/hero-picks";
+import { getPosts, getCategories, getFeaturedPosts } from "@/lib/db/queries";
 
 export const revalidate = 1200; // refresh every 20 min — stays fresh between 30-min ingest crons
 
@@ -28,14 +29,21 @@ export default async function Home({
     ? [catParam]
     : [];
 
-  const [{ posts, total }, allCategories] = await Promise.all([
+  // Show hero on default view only (no filters, default time+sort)
+  const isDefaultView = categories.length === 0 && time === "week" && sort === "newest";
+
+  const [{ posts, total }, allCategories, featured] = await Promise.all([
     getPosts({ time, sort, categories }),
     getCategories(),
+    isDefaultView ? getFeaturedPosts(3) : Promise.resolve([]),
   ]);
 
   return (
     <>
       <h1 className="sr-only">HN Showcase — AI-Powered Visual Gallery for Show HN Projects</h1>
+
+      {featured.length > 0 && <HeroPicks posts={featured} />}
+
       <Suspense fallback={null}>
         <FilterBar categories={allCategories} totalCount={total} />
       </Suspense>

@@ -384,6 +384,51 @@ export async function getRelatedPosts(
   }));
 }
 
+/**
+ * Get featured posts for the homepage hero — gems and bangers from the past week,
+ * sorted by tier (gems first) then points. Falls back to month if not enough.
+ */
+export async function getFeaturedPosts(
+  limit = 3,
+): Promise<(Post & { analysis: AiAnalysis | null })[]> {
+  const weekAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
+
+  let results = db
+    .select()
+    .from(posts)
+    .innerJoin(aiAnalysis, eq(posts.id, aiAnalysis.postId))
+    .where(and(
+      gte(posts.createdAt, weekAgo),
+      ne(posts.status, "dead"),
+      inArray(aiAnalysis.tier, ["gem", "banger"]),
+    ))
+    .orderBy(desc(aiAnalysis.pickScore), desc(posts.points))
+    .limit(limit)
+    .all();
+
+  // Fall back to month if not enough gems/bangers this week
+  if (results.length < limit) {
+    const monthAgo = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
+    results = db
+      .select()
+      .from(posts)
+      .innerJoin(aiAnalysis, eq(posts.id, aiAnalysis.postId))
+      .where(and(
+        gte(posts.createdAt, monthAgo),
+        ne(posts.status, "dead"),
+        inArray(aiAnalysis.tier, ["gem", "banger"]),
+      ))
+      .orderBy(desc(aiAnalysis.pickScore), desc(posts.points))
+      .limit(limit)
+      .all();
+  }
+
+  return results.map((r) => ({
+    ...r.posts,
+    analysis: r.ai_analysis,
+  }));
+}
+
 export async function getPost(id: number): Promise<(Post & { analysis: AiAnalysis | null }) | null> {
   const result = db
     .select()
