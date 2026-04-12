@@ -1,4 +1,4 @@
-import { getPost } from "@/lib/db/queries";
+import { getPost, getRelatedPosts } from "@/lib/db/queries";
 import { triggerRefreshIfStale, triggerGitHubRefreshIfStale } from "@/lib/refresh";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ShareButton } from "@/components/share-button";
+import { PostCard } from "@/components/post-card";
 
 export const revalidate = 3600; // refresh every hour — post data changes slowly
 
@@ -96,8 +97,79 @@ export default async function PostPage({ params }: Props) {
   const similarTo: string[] = safeParseJsonArray(post.analysis?.similarTo);
   const tier = safeParseTier(post.analysis?.tier);
 
+  // Structured data for SEO — SoftwareApplication schema
+  const slug = slugify(post.title);
+  const canonical = `https://hnshowcase.com/post/${post.id}/${slug}`;
+  const isoDate = new Date(post.createdAt * 1000).toISOString();
+  const screenshotUrl = post.hasScreenshot
+    ? `https://hnshowcase.com/screenshots/${post.id}.webp`
+    : undefined;
+  const category = post.analysis?.category || "Other";
+
+  // Map tier to a 1-5 rating for schema.org
+  const tierRating: Record<string, number> = {
+    gem: 5, banger: 4, solid: 3, mid: 2, pass: 1,
+  };
+  const ratingValue = tier ? tierRating[tier] || 3 : undefined;
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: displayTitle,
+    url: post.url || canonical,
+    description: post.analysis?.summary || displayTitle,
+    applicationCategory: category,
+    datePublished: isoDate,
+    author: {
+      "@type": "Person",
+      name: post.author,
+    },
+    ...(screenshotUrl && {
+      image: screenshotUrl,
+      screenshot: screenshotUrl,
+    }),
+    ...(post.githubLanguage && {
+      programmingLanguage: post.githubLanguage,
+    }),
+    ...(post.analysis?.targetAudience && {
+      audience: {
+        "@type": "Audience",
+        audienceType: post.analysis.targetAudience,
+      },
+    }),
+    ...(ratingValue && {
+      review: {
+        "@type": "Review",
+        author: {
+          "@type": "Organization",
+          name: "HN Showcase",
+          url: "https://hnshowcase.com",
+        },
+        reviewRating: {
+          "@type": "Rating",
+          ratingValue,
+          bestRating: 5,
+          worstRating: 1,
+        },
+        reviewBody: post.analysis?.pickReason || post.analysis?.summary || "",
+      },
+    }),
+    ...(post.url && {
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+        availability: "https://schema.org/InStock",
+      },
+    }),
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <Link
         href="/"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
@@ -282,6 +354,25 @@ export default async function PostPage({ params }: Props) {
           </div>
         </div>
       )}
+
+      {/* Related Projects */}
+      <RelatedProjects postId={post.id} title={post.title} summary={post.analysis?.summary || ""} />
+    </div>
+  );
+}
+
+async function RelatedProjects({ postId, title, summary }: { postId: number; title: string; summary: string }) {
+  const related = await getRelatedPosts(postId, title, summary, 6);
+  if (related.length === 0) return null;
+
+  return (
+    <div className="mt-10">
+      <h2 className="text-lg font-display font-semibold mb-4">Similar Projects</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {related.map((p) => (
+          <PostCard key={p.id} post={p} analysis={p.analysis} compact />
+        ))}
+      </div>
     </div>
   );
 }

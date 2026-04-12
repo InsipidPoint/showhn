@@ -57,6 +57,11 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script
+          defer
+          src="https://analytics.hnshowcase.com/script.js"
+          data-website-id="82df6e49-8888-45de-8ea7-818be6d8bc12"
+        />
+        <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme:dark)").matches))document.documentElement.classList.add("dark")}catch(e){}})()`,
           }}

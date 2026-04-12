@@ -32,6 +32,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
+  const categorySlugs = [
+    "ai-ml","developer-tools","saas","open-source","hardware","design",
+    "productivity","finance","health","education","social","gaming",
+    "security","data","infrastructure","other",
+  ];
+  const categoryEntries: MetadataRoute.Sitemap = categorySlugs.map((slug) => ({
+    url: `https://hnshowcase.com/category/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: "daily",
+    priority: 0.8,
+  }));
+
   return [
     {
       url: "https://hnshowcase.com",
@@ -45,6 +57,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "daily",
       priority: 0.9,
     },
+    ...categoryEntries,
     {
       url: "https://hnshowcase.com/about",
       lastModified: new Date(),

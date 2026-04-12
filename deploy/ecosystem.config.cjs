@@ -3,10 +3,10 @@ module.exports = {
     {
       name: "hn-static",
       script: "deploy/static-server.js",
+      exec_mode: "fork",
       env: {
         STATIC_PORT: 3334,
       },
-      instances: 1,
       autorestart: true,
       max_restarts: 10,
       restart_delay: 3000,
@@ -18,6 +18,7 @@ module.exports = {
     {
       name: "hn-showcase",
       cwd: "./app",
+      exec_mode: "fork",
       script: "node_modules/.bin/next",
       args: "start",
       env: {

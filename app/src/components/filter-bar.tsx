@@ -91,7 +91,7 @@ export function FilterBar({ categories, totalCount }: { categories: string[]; to
           ))}
         </div>
 
-        <div className="flex items-center gap-0.5 bg-muted/40 rounded-lg p-0.5">
+        <div className="flex items-center gap-0.5 bg-muted/40 rounded-lg p-0.5 overflow-x-auto">
           <span className="text-xs text-muted-foreground mx-1.5 hidden sm:inline">Sort:</span>
           {SORT_OPTIONS.map((opt) => (
             <button

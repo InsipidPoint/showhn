@@ -90,9 +90,11 @@ function timeAgo(timestamp: number): string {
 export function PostCard({
   post,
   analysis,
+  compact,
 }: {
   post: Post;
   analysis?: AiAnalysis | null;
+  compact?: boolean;
 }) {
   const slug = slugify(post.title);
   const href = `/post/${post.id}/${slug}`;
@@ -110,7 +112,22 @@ export function PostCard({
     <Link href={href} className="group block">
       <article className={`rounded-lg border border-border bg-card overflow-hidden shadow-sm transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5 dark:shadow-none dark:hover:shadow-md dark:hover:shadow-primary/5 dark:hover:border-primary/20 ${tierStyle.accent}`}>
         {/* Screenshot / GitHub card */}
-        <div className="relative aspect-[16/10] bg-muted overflow-hidden">
+        {compact ? (
+          <div className="relative flex items-center justify-between px-3 pt-3">
+            {analysis?.category && (
+              <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-muted border border-border/50">
+                {analysis.category}
+              </Badge>
+            )}
+            {tier && (
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase ${tierStyle.badge}`}>
+                <span className="tracking-tighter">{TIER_DOTS[tier]}</span>
+                {TIER_LABELS[tier]}
+              </span>
+            )}
+          </div>
+        ) : null}
+        <div className={`relative aspect-[16/10] bg-muted overflow-hidden ${compact ? "hidden" : ""}`}>
           {post.githubStars != null ? (
             <div className="absolute inset-0 flex flex-col justify-center px-5 py-4 bg-gradient-to-br from-muted to-muted/80">
               <div className="flex items-center gap-1.5 text-muted-foreground/70 mb-2">

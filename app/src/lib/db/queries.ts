@@ -235,6 +235,155 @@ export async function getDigest(date?: string): Promise<{
   };
 }
 
+// Stopwords for FTS queries — derived from corpus analysis of 10k+ Show HN posts.
+// Includes terms appearing in 15+ of 16 categories (too generic to find similar projects)
+// plus standard English stopwords. Tech-specific terms (python, rust, git, etc.) are
+// deliberately kept — they carry real topical signal.
+const STOPWORDS = new Set([
+  // English stopwords
+  "a","an","the","and","or","of","for","in","on","to","is","it","that","with","as",
+  "by","from","this","at","be","are","was","has","its","into","not","can","you","your",
+  "all","will","each","per","via","now","also","but","than","any","more","most","very",
+  "just","only","been","being","have","had","having","do","does","did","doing","would",
+  "should","could","may","might","shall","show","hn","one","two","first",
+  "about","like","over","between","through","after","before","during","without",
+  "within","across","along","behind","around","then","every","instead","their","them",
+  "who","what","when","where","how","want","own","lets","turns","style","line",
+  // Generic verbs (appear across all categories)
+  "using","based","built","use","uses","used","make","makes","made","build","building",
+  "run","runs","running","create","creating","find","get","gets","help","helps",
+  "need","needs","provides","providing","requiring","allows","enable","enables",
+  "designed","shows","showing","displays","generates","generated","generate",
+  "combining","aimed","track","tracking","tracker","testing","written",
+  // Generic tech/product terms (corpus: appear in 15+ of 16 categories)
+  "tool","tools","app","apps","application","system","systems","platform","web",
+  "new","open","source","project","real","time","data","file","files","code",
+  "support","features","works","including","available","content","text",
+  "page","pages","interface","user","users","site","post","word",
+  "access","activity","analysis","backend","daily","detection","developers",
+  "digital","driven","engine","export","feedback","grid","image","integration",
+  "level","lightweight","live","local","maps","multi","native","network","news",
+  "offline","optional","people","personal","powered","research","rest","search",
+  "side","teams","type","video","visual","visualization","zero",
+  // Generic format/delivery terms
+  "chrome","extension","extensions","browser","cli","gui","desktop","mobile",
+  "api","sdk","library","framework","plugin","widget","server","client",
+  "terminal","hosted","chat",
+  // Generic adjectives
+  "high","low","fast","small","large","full","free","better","best","great",
+  "simple","single","modern","custom","standard","different","specific","common",
+  "alternative","implementation","performance",
+  "automatic","automatically","non","required","proof","concept","general",
+  "management","software","service","services","online","generation",
+  "backed","computer","multiple",
+]);
+
+/**
+ * Extract top search terms from title + summary for FTS5 OR queries.
+ * Title words are weighted higher since they carry more topical signal.
+ */
+function extractSearchTerms(title: string, summary: string, maxTerms = 8): string {
+  const clean = (s: string) => s.toLowerCase().replace(/^show hn:\s*/i, "").replace(/[^a-z0-9\s]/g, " ");
+  const titleWords = clean(title).split(/\s+/).filter(w => w.length > 2 && !STOPWORDS.has(w));
+  const summaryWords = clean(summary).split(/\s+/).filter(w => w.length > 2 && !STOPWORDS.has(w));
+
+  // Score each term: title words worth 2, summary words worth 1
+  const scores = new Map<string, number>();
+  for (const w of titleWords) scores.set(w, (scores.get(w) || 0) + 2);
+  for (const w of summaryWords) scores.set(w, (scores.get(w) || 0) + 1);
+
+  const topTerms = [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, maxTerms)
+    .map(([term]) => term);
+
+  return topTerms.join(" OR ");
+}
+
+/**
+ * Find related posts using FTS5 search on the current post's title + summary.
+ * Returns up to `limit` related posts, excluding the current post and dead posts.
+ */
+export async function getRelatedPosts(
+  postId: number,
+  title: string,
+  summary: string,
+  limit = 6,
+): Promise<(Post & { analysis: AiAnalysis | null })[]> {
+  if (!title && !summary) return [];
+
+  const { sqlite } = await import("./index");
+  const query = extractSearchTerms(title, summary);
+  if (!query) return [];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let rows: any[];
+  try {
+    rows = sqlite
+      .prepare(
+        `SELECT p.*, a.post_id as a_post_id, a.summary as a_summary, a.category as a_category,
+                a.tech_stack as a_tech_stack, a.target_audience as a_target_audience,
+                a.tags as a_tags, a.pick_reason as a_pick_reason,
+                a.pick_score as a_pick_score,
+                a.tier as a_tier, a.vibe_tags as a_vibe_tags,
+                a.strengths as a_strengths, a.weaknesses as a_weaknesses,
+                a.similar_to as a_similar_to,
+                a.analyzed_at as a_analyzed_at, a.model as a_model
+         FROM posts_fts fts
+         JOIN posts p ON p.id = fts.rowid
+         LEFT JOIN ai_analysis a ON p.id = a.post_id
+         WHERE posts_fts MATCH ? AND p.id != ? AND p.status = 'active'
+         ORDER BY rank
+         LIMIT ?`
+      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .all(query, postId, limit) as any[];
+  } catch {
+    return [];
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return rows.map((r: any) => ({
+    id: r.id,
+    title: r.title,
+    url: r.url,
+    author: r.author,
+    points: r.points,
+    comments: r.comments,
+    createdAt: r.created_at,
+    storyText: r.story_text,
+    hasScreenshot: r.has_screenshot,
+    pageContent: r.page_content,
+    readmeContent: r.readme_content,
+    githubStars: r.github_stars,
+    githubLanguage: r.github_language,
+    githubDescription: r.github_description,
+    githubUpdatedAt: r.github_updated_at,
+    status: r.status,
+    fetchedAt: r.fetched_at,
+    updatedAt: r.updated_at,
+    analysis: r.a_post_id
+      ? {
+          postId: r.a_post_id,
+          summary: r.a_summary,
+          category: r.a_category,
+          techStack: r.a_tech_stack,
+          targetAudience: r.a_target_audience,
+          tags: r.a_tags,
+          pickReason: r.a_pick_reason,
+          pickScore: r.a_pick_score,
+          tier: r.a_tier,
+          vibeTags: r.a_vibe_tags,
+          strengths: r.a_strengths,
+          weaknesses: r.a_weaknesses,
+          similarTo: r.a_similar_to,
+          analyzedAt: r.a_analyzed_at,
+          model: r.a_model,
+        }
+      : null,
+  }));
+}
+
 export async function getPost(id: number): Promise<(Post & { analysis: AiAnalysis | null }) | null> {
   const result = db
     .select()

@@ -9,6 +9,7 @@ An AI-powered visual gallery for [Show HN](https://news.ycombinator.com/showhn.h
 - **Visual gallery** — Automated screenshots of every Show HN project
 - **GitHub-aware** — GitHub repos get metadata cards (stars, language, description) instead of generic screenshots, with on-demand refresh via the GitHub API
 - **AI analysis** — Each project gets a tier (gem/banger/solid/mid/pass), vibe tags, highlight, and strengths/weaknesses via LLM. Benchmark-calibrated against 15 real posts for consistent grading. Batched (5 posts/call) with Anthropic prompt caching for cost efficiency
+- **Similar projects** — FTS5-powered related project recommendations on every post page, using corpus-analyzed stopwords for relevance
 - **Full-text search** — SQLite FTS5 search across titles and AI summaries
 - **Daily digest** — Curated view of each day's best projects
 - **AI vs HN** — Divergence page showing where AI ratings and HN crowd votes disagree
@@ -20,9 +21,10 @@ An AI-powered visual gallery for [Show HN](https://news.ycombinator.com/showhn.h
 
 - **Frontend:** Next.js 16 (App Router), React 19, Tailwind CSS 4, shadcn/ui
 - **Database:** SQLite + Drizzle ORM + FTS5 for search
-- **AI:** Configurable LLM pipeline (OpenAI or Anthropic) with batch analysis and prompt caching
+- **AI:** Configurable LLM pipeline (OpenAI, Anthropic, or OpenRouter) with batch analysis and prompt caching
 - **Screenshots:** Playwright (headless Chromium)
 - **Data:** Algolia HN Search API for ingestion
+- **Analytics:** Self-hosted [Umami](https://umami.is) for privacy-friendly traffic tracking
 
 ## Getting Started
 
@@ -75,6 +77,8 @@ The app runs on port 3000 by default. Override with `PORT=3333 npm run dev`.
 | `scripts/backfill-content-playwright.ts` | Playwright-based backfill for JS-rendered sites. |
 | `scripts/backfill-thumbnails.ts` | Generate thumbnail images from full screenshots. |
 | `scripts/setup-fts.ts` | Rebuild the FTS5 search index. Run after ingestion. |
+| `scripts/analytics.sh` | Pull Umami analytics from CLI. Usage: `./scripts/analytics.sh [site] [period]`. Sites: `all`, `hn`, `shiwei`, `everglades`, `burin`. Periods: `today`, `24h`, `7d`, `30d`. |
+| `scripts/analyze-stopwords.sh` | Corpus analysis for FTS stopwords. Finds terms appearing in 15+ of 16 categories. Run every few months to update the stopword list in `queries.ts` as the corpus grows. |
 
 ### Environment Variables
 
@@ -83,10 +87,11 @@ See [`.env.example`](app/.env.example) for all available options:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_PATH` | `./data/showhn.db` | Path to SQLite database |
-| `ANALYSIS_PROVIDER` | `anthropic` | LLM provider (`openai` or `anthropic`) |
+| `ANALYSIS_PROVIDER` | `anthropic` | LLM provider (`openai`, `anthropic`, or `openrouter`) |
 | `ANALYSIS_MODEL` | `claude-haiku-4-5-20251001` | Model name for analysis |
 | `OPENAI_API_KEY` | — | OpenAI API key |
 | `ANTHROPIC_API_KEY` | — | Anthropic API key |
+| `OPENROUTER_API_KEY` | — | OpenRouter API key (when using `openrouter` provider) |
 | `SCREENSHOT_CONCURRENCY` | `4` | Parallel browser instances |
 | `SCREENSHOT_TIMEOUT` | `15000` | Screenshot timeout in ms |
 | `GITHUB_TOKEN` | — | GitHub API token (optional, raises rate limit from 60 to 5000 req/hr) |
