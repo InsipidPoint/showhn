@@ -393,6 +393,8 @@ export async function getFeaturedPosts(
 ): Promise<(Post & { analysis: AiAnalysis | null })[]> {
   const weekAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
 
+  // Sort by points within top tiers — the hero should showcase the most
+  // popular gems/bangers, not just any gem over a high-point banger.
   let results = db
     .select()
     .from(posts)
@@ -402,7 +404,7 @@ export async function getFeaturedPosts(
       ne(posts.status, "dead"),
       inArray(aiAnalysis.tier, ["gem", "banger"]),
     ))
-    .orderBy(desc(aiAnalysis.pickScore), desc(posts.points))
+    .orderBy(desc(posts.points))
     .limit(limit)
     .all();
 
@@ -418,7 +420,7 @@ export async function getFeaturedPosts(
         ne(posts.status, "dead"),
         inArray(aiAnalysis.tier, ["gem", "banger"]),
       ))
-      .orderBy(desc(aiAnalysis.pickScore), desc(posts.points))
+      .orderBy(desc(posts.points))
       .limit(limit)
       .all();
   }
