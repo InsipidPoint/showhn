@@ -2,6 +2,23 @@
  * Benchmark calibration set — 15 real Show HN posts (3 per tier) with
  * verified tier assignments and explanations. Injected into every analysis
  * call to anchor the model's judgment against known-good examples.
+ *
+ * History:
+ * - Mar 2026: initial 15 calibrators (3 per tier).
+ * - Apr 2026: expanded to 30 (6 per tier) to test prompt iteration. Eval showed
+ *   the additional calibrators gave ~13pp accuracy lift (53→67%) but doubled
+ *   system-prompt cost. Pruned back to 15 keeping the highest-signal ones from
+ *   both sets — see selection notes in the entity (memory/entities/hnshowcase.md
+ *   under "Calibration set design").
+ *
+ * Selection criteria for the active 15:
+ * - 3 per tier, balancing URL types (~47% GitHub vs production's 41%)
+ * - Multiple flavors per tier where justified (gem: constraint craft + collaboration)
+ * - AI/agent calibrators present at every relevant tier
+ * - Distinct failure modes at the floor (narrative-as-substitute, commodity clone, spec-as-product)
+ * - Drop any calibrator that BOTH baseline AND a tested candidate model consistently
+ *   miscall — those are bad calibrators, not bad models. Dropped: Habit tracker
+ *   (always called mid), Wispr Flow alt (always called solid).
  */
 
 import type { Tier } from "./llm";
@@ -16,13 +33,6 @@ export type BenchmarkEntry = {
 export const BENCHMARK_ENTRIES: BenchmarkEntry[] = [
   // ── GEM ──
   {
-    postId: 46994974,
-    title: "YOR – open-source bimanual mobile robot for <$10k",
-    tier: "gem",
-    reason:
-      "Genuine hardware category disruption. Replaces proprietary systems with a fully open-source build list. \"Why didn't this exist?\" energy. You'd send this to any engineer who builds robots.",
-  },
-  {
     postId: 47014500,
     title: "Sameshi – a ~1200 Elo chess engine that fits within 2KB",
     tier: "gem",
@@ -30,21 +40,21 @@ export const BENCHMARK_ENTRIES: BenchmarkEntry[] = [
       "Pure demoscene-grade constraint craft. Any programmer shares this regardless of whether they play chess. The Elo measurement methodology is rigorous, not hand-waved.",
   },
   {
-    postId: 47088108,
-    title: "Open-source MCP servers making every country's law searchable by AI",
+    postId: 47132102,
+    title: "X86CSS – An x86 CPU emulator written in CSS",
     tier: "gem",
     reason:
-      "Solves a genuine AI hallucination failure mode (legal questions) with real infrastructure. Zero-to-one: before this, AI either hallucinated law or said \"consult a lawyer.\"",
+      "x86 CPU emulator written entirely in CSS. No JavaScript. Actually runs C programs in the browser. The constraint isn't useful — that's the point. Anyone seeing this thinks \"wait, how?\" regardless of whether they care about CSS or x86. Pure \"why didn't anyone try this before\" energy.",
+  },
+  {
+    postId: 47506713,
+    title: "I took back Video.js after 16 years and we rewrote it to be 88% smaller",
+    tier: "gem",
+    reason:
+      "Founder pulled Video.js back from PE acquisition, then teamed up with Plyr, Vidstack, and Media Chrome maintainers (75k combined stars) to share a single core. 88% bundle reduction is real and measurable. Different gem flavor — the rare-collaboration story IS the wow, not the technical execution alone.",
   },
 
   // ── BANGER ──
-  {
-    postId: 47040375,
-    title: "Free Alternative to Wispr Flow, Superwhisper, and Monologue",
-    tier: "banger",
-    reason:
-      "Replaces three $10/month SaaS tools with a free, open-source build that matches the flagship feature (Deep Context). Verified working. Clear \"oh that's good, and it's free.\"",
-  },
   {
     postId: 47022745,
     title: "Pangolin: Open-source identity-based VPN (Twingate/Zscaler alternative)",
@@ -57,7 +67,14 @@ export const BENCHMARK_ENTRIES: BenchmarkEntry[] = [
     title: "Off Grid – Run AI text, image gen, vision offline on your phone",
     tier: "banger",
     reason:
-      "Genuinely comprehensive offline AI suite with hardware-accelerated inference on both platforms. Real benchmarks. On Google Play. Not gem because \"local LLM mobile apps\" is a known category.",
+      "Genuinely comprehensive offline AI suite with hardware-accelerated inference on both platforms. Real benchmarks. On Google Play. Not gem because \"local LLM mobile apps\" is a known category. Banger because it inverts the usual cloud-AI deployment assumption.",
+  },
+  {
+    postId: 47828896,
+    title: "TRELLIS.2 image-to-3D running on Mac Silicon – no Nvidia GPU needed",
+    tier: "banger",
+    reason:
+      "Real port of Microsoft's 4B-param image-to-3D model from CUDA to Apple Silicon. Replaces flex_gemm, flash_attn, and CUDA hashmap ops with pure-PyTorch alternatives across 9 files. 400K vertex meshes in 3.5min on M4 Pro. Banger because the engineering depth is verifiable in the port table, not because it's AI.",
   },
 
   // ── SOLID ──
@@ -76,34 +93,34 @@ export const BENCHMARK_ENTRIES: BenchmarkEntry[] = [
       "Native wire protocol parsing means genuinely zero code changes. Real tool, ships today. Not banger because \"SQL query inspector\" is a solved category (Datadog, pgAdmin).",
   },
   {
-    postId: 47072863,
-    title: "An encrypted, local, cross-platform journaling app",
+    postId: 47338091,
+    title: "Vanilla JavaScript refinery simulator built to explain job to my kids",
     tier: "solid",
     reason:
-      "Real crypto with clever key management (O(1) key wrapping). Thoughtful rebuild of an unmaintained predecessor. Not banger because local journaling apps are crowded.",
+      "Chemical engineer wrote a 9k-line vanilla JS refinery simulator with Matter.js minigames to explain his job to his kids. Cozy, specific, genuinely well-built. Not banger because the audience is narrow (his family + curious onlookers). The \"why I built this\" story is what makes it solid not mid.",
   },
 
   // ── MID ──
-  {
-    postId: 47025220,
-    title: "DSCI – Dead Simple CI",
-    tier: "mid",
-    reason:
-      "Real project with real integrations, but competes directly with Drone, Woodpecker, Jenkins. \"No YAML\" isn't a moat. Competent but not differentiated. Pattern: built something real in a crowded space.",
-  },
-  {
-    postId: 47036063,
-    title: "Maths, CS and AI Compendium",
-    tier: "mid",
-    reason:
-      "Genuine effort, real content. But static Markdown files — no notebooks, no exercises. Dozens of similar GitHub repos exist. Pattern: useful educational content, but reference != product.",
-  },
   {
     postId: 47041288,
     title: "Deep Research for Flights",
     tier: "mid",
     reason:
       "Pleasant UX for a real friction point. But Google Flights flex dates, Kayak Explore already handle this. No evidence of better data or novel routing. Pattern: AI wrapper on a solved problem.",
+  },
+  {
+    postId: 47086501,
+    title: "TemplateFlow – Build AI workflows, not prompts",
+    tier: "mid",
+    reason:
+      "Drag-and-drop visual builder for AI workflows with reusable templates. Real implementation. Competes directly with ComfyUI, n8n, Zapier, Langflow. Pattern: another no-code AI canvas in a crowded space. \"Build AI workflows, not prompts\" isn't a moat when five funded competitors do this.",
+  },
+  {
+    postId: 47158467,
+    title: "x402 Service Discovery – runtime endpoint finder for the agent economy",
+    tier: "mid",
+    reason:
+      "Runtime endpoint finder for x402-payable AI services with quality signals on blockchain. Real API surface, real architecture. But the agent economy that pays per query isn't proven, and \"discovery layer for unproven economy\" = speculative infra. Pattern: real engineering aimed at a market that may not materialize.",
   },
 
   // ── PASS ──
@@ -122,18 +139,21 @@ export const BENCHMARK_ENTRIES: BenchmarkEntry[] = [
       "Every tool exists on CyberChef, in browser DevTools, and on 50 other static sites. No chaining, no advanced features. Pattern: zero differentiation from free dominant alternatives.",
   },
   {
-    postId: 47057956,
-    title: "Free printable micro-habit tracker inspired by Atomic Habits",
+    postId: 47206680,
+    title: "RTS – A Git-native execution provenance protocol for AI decisions",
     tier: "pass",
     reason:
-      "Works fine. But a Google Sheets template does this identically. Nothing to curate — no interesting technical choice, no novel UX. Pattern: single-gimmick utility any spreadsheet already does.",
+      "\"Git-native protocol for AI execution provenance\" with no working code, no demo, no install command — just philosophy (\"Not observable. Reconstructable.\") and bullet lists of what RTS is not. Pattern: spec-as-substitute-for-product, manifesto with no implementation.",
   },
 ];
 
-/** Format benchmark entries as calibration context for the AI prompt. */
-export function buildBenchmarkContext(): string {
+/** Format benchmark entries as calibration context for the AI prompt.
+ *  excludePostIds: leave-one-out support for eval — omit these posts from the calibration set. */
+export function buildBenchmarkContext(excludePostIds?: number[]): string {
+  const exclude = new Set(excludePostIds ?? []);
   const grouped: Record<string, BenchmarkEntry[]> = {};
   for (const entry of BENCHMARK_ENTRIES) {
+    if (exclude.has(entry.postId)) continue;
     if (!grouped[entry.tier]) grouped[entry.tier] = [];
     grouped[entry.tier].push(entry);
   }
@@ -143,9 +163,7 @@ export function buildBenchmarkContext(): string {
 
   for (const tier of tierOrder) {
     const entries = grouped[tier] || [];
-    const lines = entries.map(
-      (e) => `  * "${e.title}" — ${e.reason}`
-    );
+    const lines = entries.map((e) => `  * "${e.title}" — ${e.reason}`);
     sections.push(`${tier.toUpperCase()}:\n${lines.join("\n")}`);
   }
 

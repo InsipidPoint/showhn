@@ -125,9 +125,10 @@ const CATEGORIES = [
   "Other",
 ];
 
-/** Static system prompt — includes benchmark calibration. Cached by Anthropic. */
-function buildSystemPrompt(): string {
-  const benchmark = buildBenchmarkContext();
+/** Static system prompt — includes benchmark calibration. Cached by Anthropic.
+ *  excludeBenchmarkIds: leave-one-out support for eval — omit these posts from calibration. */
+function buildSystemPrompt(excludeBenchmarkIds?: number[]): string {
+  const benchmark = buildBenchmarkContext(excludeBenchmarkIds);
   return `You're a sharp, opinionated tech writer reviewing Show HN projects. Analyze the project provided and return a JSON object.
 
 Return ONLY a JSON object with these fields:
@@ -143,11 +144,29 @@ Return ONLY a JSON object with these fields:
   "similar_to": ["1-3 existing tools or products this competes with or closely resembles. Empty array if truly novel."]
 }
 
+CALIBRATION DISCIPLINE — before reading the tier guide, internalize this:
+  The full distribution is gem 2-4% / banger 16% / solid 47% / mid 31% / pass 4%.
+  Calibration errors run in BOTH directions:
+  - Compression error: hedging away from gem and pass into the safe middle.
+    When a project gives a clear gem signal, name it gem — don't retreat to banger.
+    When a project has no substance, name it pass — don't promote to mid.
+  - Inflation error: pushing solid up to banger or mid up to solid because you
+    feel cautious about being harsh. Solid is the honest median. If a project
+    is competently built but doesn't make you say "oh that's cool," it's solid
+    — promoting it to banger to seem generous is also a calibration error.
+  Use the rubric to find the right tier. Don't retreat to the middle, but
+  don't drift up to seem charitable either.
+
 TIER GUIDE — read all five before deciding.
   gem:    The best of Show HN — you'd send this link to a friend unprompted. Novel concept
           or approach, strong execution, and genuine "wow" factor. Expect roughly 2-4% of
           projects to be gems. If a project makes you think "this is special" or "why didn't
           this exist before?" — trust that instinct and give it gem. Don't second-guess upward.
+          Gem vs banger: gem makes you think "I have to share this" — banger makes you think
+          "neat, that's well-done." If you're tempted to call banger but the project (a) does
+          something nobody tried before, (b) hits a "constraint craft" mark like fitting an
+          impossible thing in an impossible space, or (c) tells a story that itself is the
+          wow (rare collaborations, single-person feats, niche hardware) — that's gem, not banger.
   banger: Clear "oh that's cool" moment that most developers would appreciate. Needs both
           an interesting idea AND strong execution — not either/or. The project must do
           something that isn't already well-served by established tools in the space.
@@ -164,9 +183,16 @@ TIER GUIDE — read all five before deciding.
           A README full of buzzwords without matching implementation quality belongs here.
           Most "yet another X" projects belong here, even if competently built.
           Mid is not an insult — it's the honest middle of the bell curve.
+          Mid vs pass: mid means it works but isn't interesting. Pass means there's no
+          substance to evaluate at all. If the project is functional and you can describe
+          what it does, it's at minimum mid. Pass is reserved for the failure modes below.
   pass:   No substance. Generic, broken, tutorial-level clone, empty landing page, blog
           post masquerading as a product, or a feature count without real depth (e.g. "100+
-          tools" that each wrap a library function).
+          tools" that each wrap a library function). Pass also covers: spec/manifesto with
+          no shipped code, opinion piece submitted to wrong venue, single-gimmick utility
+          a spreadsheet replicates, or commodity clone of a free dominant alternative
+          (CyberChef, browser DevTools, Google Sheets). If the project triggers any of these
+          patterns, name it pass — don't promote to mid because the work "exists."
 
 COMMON FALSE POSITIVES — these look like bangers but aren't:
   Complex architecture, crowded category → solid:
@@ -228,6 +254,24 @@ BANGER vs SOLID — the "would you text this?" test:
   better than the obvious alternative, or solving a problem that wasn't solvable before
   AI. "Uses GPT to do X" is not automatically interesting. "Runs entirely local with
   custom fine-tuned model" might be.
+
+AI/AGENT BANGERS — these specifically deserve banger, not solid:
+  Local-first AI infra: AI that runs on the user's hardware (phone, browser, edge
+    device) when the dominant alternative is cloud-only. Off-Grid AI on iOS, Gemma
+    running in Chrome with WebGPU + DOM tools — bangers because they invert the
+    default deployment assumption.
+  Identity/architecture-novel networking AI tools: VPN/proxy tools where the
+    novelty is the architecture (identity-based access control, mesh-style routing)
+    not the feature list. Pangolin-style identity VPNs — banger.
+  Educational AI/system tools that teach by doing: in-browser GPU builders,
+    interactive transformer visualizers, neural-network playgrounds that actually
+    run. Craft + pedagogical value combine into banger when execution is real.
+  AI agent infra that solves a real coordination problem: MCP servers,
+    inter-agent protocols, agent debugging tools — banger when there's a clear
+    "this enables a thing that wasn't possible" claim.
+  Default rule still applies: solo "uses GPT-4 to do X" wrapper is mid. Banger
+  requires real architectural or distributional novelty, not an AI label on a
+  solved problem.
 
 COMMON FALSE NEGATIVES — these look like solids/bangers but deserve higher:
   Niche tool with genuinely clever approach → banger (not solid):
@@ -381,13 +425,22 @@ async function callAnthropic(
 async function callOpenRouter(
   systemPrompt: string,
   content: OpenAI.ChatCompletionContentPart[],
-  model: string
+  model: string,
+  routerProviderOverride?: string,
+  allowFallbacks?: boolean,
 ): Promise<ProviderResponse> {
   const client = new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY,
     baseURL: "https://openrouter.ai/api/v1",
   });
   const start = Date.now();
+
+  // Provider routing: pin for production stability (Qwen on Alibaba). Eval can
+  // override per-call when comparing models that aren't on the same provider.
+  const pinnedProvider = routerProviderOverride ?? process.env.OPENROUTER_PROVIDER ?? "alibaba";
+  const providerCfg = pinnedProvider === "auto"
+    ? undefined
+    : { order: [pinnedProvider], allow_fallbacks: !!allowFallbacks };
 
   const response = await client.chat.completions.create({
     model,
@@ -396,20 +449,29 @@ async function callOpenRouter(
       { role: "user", content },
     ],
     max_completion_tokens: 8000,
-    // @ts-expect-error — OpenRouter-specific provider routing (not in OpenAI types)
-    provider: {
-      order: [process.env.OPENROUTER_PROVIDER || "alibaba"],
-      allow_fallbacks: false,
-    },
+    // Force JSON-only output. Some models (Qwen 3.6 series) drop the leading `{`
+    // without this. OpenRouter forwards response_format to providers that support it.
+    response_format: { type: "json_object" },
+    // OpenRouter-specific provider routing (not in OpenAI types)
+    ...((providerCfg ? { provider: providerCfg } : {}) as Record<string, unknown>),
   });
+
+  // OpenRouter returns prompt_tokens_details.cached_tokens for providers that
+  // support implicit caching. Many Qwen endpoints (Alibaba in particular) do
+  // NOT support caching — these stay 0 and we pay full input price each call.
+  const u = response.usage as unknown as {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number };
+  } | undefined;
 
   return {
     text: response.choices[0]?.message?.content || "",
     usage: {
-      inputTokens: response.usage?.prompt_tokens ?? 0,
-      outputTokens: response.usage?.completion_tokens ?? 0,
-      cacheReadTokens: 0,
-      cacheCreateTokens: 0,
+      inputTokens: u?.prompt_tokens ?? 0,
+      outputTokens: u?.completion_tokens ?? 0,
+      cacheReadTokens: u?.prompt_tokens_details?.cached_tokens ?? 0,
+      cacheCreateTokens: u?.prompt_tokens_details?.cache_write_tokens ?? 0,
       durationMs: Date.now() - start,
     },
   };
@@ -440,10 +502,47 @@ export function parseVibeTags(value: unknown): string[] {
  * Handles the case where the model appends text/commentary after the JSON.
  */
 function extractJsonObject(raw: string): string {
-  const stripped = raw.replace(/```json?\s*/gi, "").replace(/```/g, "").trim();
+  let stripped = raw.replace(/```json?\s*/gi, "").replace(/```/g, "").trim();
+  stripped = repairLeadingJson(stripped);
   const results = extractJsonObjectsFromString(stripped, 1);
   if (results.length === 0) throw new Error("No JSON object found in response");
   return results[0];
+}
+
+/**
+ * Repair a JSON response that's missing its leading `{` and possibly the first key.
+ * Observed in Qwen 3.6 series before response_format was added — kept as a
+ * defensive fallback for any provider that strips opening braces.
+ *
+ * Cases handled:
+ *   1. `"key": "value", ...}`           → prepend `{`
+ *   2. `": "value", "next_key": ...}`   → prepend `{"summary` (assume first key was `summary`)
+ *   3. Anything starting with `{`        → unchanged
+ */
+function repairLeadingJson(s: string): string {
+  if (!s) return s;
+  if (s[0] === "{") return s;
+
+  // Case 1: starts with a quoted key like `"summary": ...`
+  if (/^\s*"[\w_]+"\s*:/.test(s)) {
+    // If there's no `{` at all, or `{` only appears later than the first quote, prepend
+    if (!s.includes("{") || s.indexOf("{") > s.indexOf('"')) {
+      return "{" + s;
+    }
+  }
+
+  // Case 2: starts mid-value like `": "value..."` — the first key was eaten too.
+  // Our prompt's first field is `summary`, so reconstruct it.
+  if (/^\s*"\s*:\s*/.test(s) || /^\s*:\s*"/.test(s)) {
+    return `{"summary` + s;
+  }
+
+  // Case 3: starts with bare value like `"some text", "category": ...` — same fix
+  if (/^\s*"[^"]*",\s*"[\w_]+"\s*:/.test(s)) {
+    return `{"summary": ` + s;
+  }
+
+  return s;
 }
 
 /**
@@ -558,13 +657,20 @@ export function buildBatches(posts: BatchPost[], maxBatchTokens = 10000, maxBatc
  * Includes benchmark calibration context and enables within-batch ranking.
  */
 export async function analyzeBatch(
-  posts: BatchPost[]
+  posts: BatchPost[],
+  options: {
+    excludeBenchmarkIds?: number[];
+    modelOverride?: string;
+    providerOverride?: string;
+    routerProviderOverride?: string;
+    allowRouterFallbacks?: boolean;
+  } = {}
 ): Promise<{ results: Map<number, AnalysisResult>; model: string; usage: UsageStats }> {
   if (posts.length === 0) throw new Error("analyzeBatch: empty batch");
 
-  const provider = process.env.ANALYSIS_PROVIDER || "openai";
-  const model = process.env.ANALYSIS_MODEL || "gpt-5-mini";
-  const systemPrompt = buildSystemPrompt();
+  const provider = options.providerOverride || process.env.ANALYSIS_PROVIDER || "openai";
+  const model = options.modelOverride || process.env.ANALYSIS_MODEL || "gpt-5-mini";
+  const systemPrompt = buildSystemPrompt(options.excludeBenchmarkIds);
 
   // Build content array with per-post data
   // (Benchmark calibration is in the system prompt, cached by Anthropic)
@@ -629,7 +735,13 @@ export async function analyzeBatch(
     const prefill = posts.length === 1 ? "{" : '{"results": [{"post_id":';
     resp = await callAnthropic(systemPrompt, anthropicContent, model, prefill);
   } else if (provider === "openrouter") {
-    resp = await callOpenRouter(systemPrompt, openaiContent, model);
+    resp = await callOpenRouter(
+      systemPrompt,
+      openaiContent,
+      model,
+      options.routerProviderOverride,
+      options.allowRouterFallbacks,
+    );
   } else {
     resp = await callOpenAI(systemPrompt, openaiContent, model);
   }
