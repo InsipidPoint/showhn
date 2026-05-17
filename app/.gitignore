@@ -50,3 +50,6 @@ next-env.d.ts
 !/data/.gitkeep
 /public/screenshots/*
 !/public/screenshots/.gitkeep
+
+# scan-opportunities.ts output (regenerable)
+data/opportunities/
